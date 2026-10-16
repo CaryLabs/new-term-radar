@@ -1,5 +1,7 @@
 # new-term-radar
 
+> This branch uses local JSON credentials and Linux/Windows Bash launchers. Start with the [user manual](docs/USER_MANUAL.md). Historical environment-variable/CLI-login instructions below no longer apply on this branch.
+
 [中文说明](README.zh-CN.md)
 
 A daily report of the names that are starting to surge in AI: new models, products, tools and repos, caught where they are said first, before they show up in keyword tools.

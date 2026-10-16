@@ -1,14 +1,14 @@
 """config.json: what to watch. Copy config.example.json and edit it.
 
 Everything has a default except the X accounts and the sitemaps, which only you can
-choose. Secrets are never read from this file; they come from the environment.
+choose. Credentials and service addresses come only from this local JSON file.
 """
 from __future__ import annotations
 
 import json
 from pathlib import Path
 
-from . import i18n, terms
+from . import i18n, settings, terms
 
 DEFAULTS = {
     "lang": "en",
@@ -36,13 +36,37 @@ DEFAULTS = {
               "reddit_queries": ["{k} alternative", "{k} frustrating", '"{k}" "doesn\'t work"', "{k} wish there was"]},
     "tutorials": {"max_leads": 3, "videos": 3, "model": "gpt-4.1-mini"},
     "gsc": {},
+    "credentials": {"aisa_api_key": "", "goanyapi_api_key": "", "github_token": "", "trustmrr_api_key": "",
+                    "resend_api_key": "", "email_from": "", "email_to": []},
+    "services": {"aisa_router_base_url": "https://tools.aisa.one", "aisa_api_base_url": "https://api.aisa.one",
+                 "goanyapi_base_url": "https://api.goanyapi.com"},
 }
 
 
 def load(path: Path) -> dict:
     if not path.exists():
         raise SystemExit(f"{path} not found: copy config.example.json to {path.name} and edit it")
-    raw = json.loads(path.read_text())
+    raw = json.loads(path.read_text(encoding="utf-8-sig"))
+    if not isinstance(raw, dict):
+        raise ValueError("config must be a JSON object")
+    for group in ("credentials", "services"):
+        values = raw.get(group, {})
+        if not isinstance(values, dict):
+            raise ValueError(f"{group} must be an object")
+        unknown = values.keys() - DEFAULTS[group].keys()
+        if unknown:
+            raise ValueError(f"unknown {group} field(s): {', '.join(sorted(unknown))}")
+        for name, value in values.items():
+            valid = isinstance(value, str)
+            if group == "credentials" and name == "email_to":
+                valid = valid or (isinstance(value, list) and all(isinstance(x, str) for x in value))
+            if not valid:
+                raise ValueError(f"{group}.{name} has an invalid type")
+            if group == "services":
+                from urllib.parse import urlsplit
+                parsed = urlsplit(value)
+                if parsed.scheme != "https" or not parsed.netloc or parsed.username or parsed.password or parsed.query or parsed.fragment:
+                    raise ValueError(f"services.{name} must be an HTTPS base URL without credentials/query/fragment")
     cfg = {}
     for k, default in DEFAULTS.items():
         v = raw.get(k, default)
@@ -50,6 +74,7 @@ def load(path: Path) -> dict:
     cfg["_dir"] = path.resolve().parent
     i18n.set_lang(cfg["lang"])
     terms.add_stop(cfg["stop_words"])
+    settings.configure(cfg)
     return cfg
 
 

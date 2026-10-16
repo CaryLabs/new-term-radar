@@ -128,7 +128,7 @@ def tutorials(term: str, c: dict) -> tuple[list[dict], int, list[str]]:
 def run(cfg: dict, keyword: str, extensions: list[str] | None = None) -> dict:
     """The pain points for a kind of tool, from reviews, Reddit and tutorial comments."""
     c, items, cost, errors = cfg["pains"], [], 0, []
-    for fn in (lambda: chrome(keyword, list(extensions or []), c) if goanyapi.key() or extensions else ([], 0, ["no GOANYAPI_API_KEY: Chrome reviews skipped"]),
+    for fn in (lambda: chrome(keyword, list(extensions or []), c) if goanyapi.key() or extensions else ([], 0, ["no credentials.goanyapi_api_key: Chrome reviews skipped"]),
                lambda: reddit(keyword, c), lambda: tutorials(keyword, c)):
         got, spent, failed = fn()
         items, cost, errors = items + got, cost + spent, errors + failed

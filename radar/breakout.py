@@ -17,14 +17,13 @@ A GitHub token (GITHUB_TOKEN) is optional and only raises the rate limit.
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.parse
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from . import UA, snap
+from . import UA, settings, snap
 from .i18n import t
 
 PAGES = 2
@@ -35,7 +34,7 @@ API = "https://api.github.com"
 
 def _get(path: str) -> dict:
     headers = {"Accept": "application/vnd.github+json", "User-Agent": UA}
-    tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    tok = settings.credential("github_token")
     if tok:
         headers["Authorization"] = f"Bearer {tok}"
     with urllib.request.urlopen(urllib.request.Request(API + path, headers=headers), timeout=30) as res:

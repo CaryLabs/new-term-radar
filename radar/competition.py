@@ -26,7 +26,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
-from . import aisa, goanyapi, snap
+from . import aisa, goanyapi, settings, snap
 
 SERP_TOOL = "post_dataforseo_serp_google_organic_live"
 KD_TOOL = "post_dataforseo_labs_google_keyword_overview_live"
@@ -85,7 +85,7 @@ def ratings(domains: list[str], state: Path) -> tuple[dict[str, int | None], int
             return d, None, 0
     cost = 0
     with ThreadPoolExecutor(WORKERS) as pool:
-        for d, data, spent in pool.map(one, sorted(set(domains) - set(fresh))):
+        for d, data, spent in pool.map(settings.inherit_context(one), sorted(set(domains) - set(fresh))):
             cost += spent
             if data is not None:
                 fresh[d] = {"dr": data.get("domain_rating"), "day": today.isoformat()}
@@ -109,7 +109,7 @@ def supply(rows: list[dict]) -> tuple[int, list[str]]:
         return r, out, cost, errors
     total, errors = 0, []
     with ThreadPoolExecutor(WORKERS) as pool:
-        for r, out, cost, errs in pool.map(one, rows):
+        for r, out, cost, errs in pool.map(settings.inherit_context(one), rows):
             r["competition"].update(out)
             total, errors = total + cost, errors + errs
     return total, errors

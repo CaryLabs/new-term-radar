@@ -1,5 +1,19 @@
 {
   "lang": "en",
+  "credentials": {
+    "aisa_api_key": "",
+    "goanyapi_api_key": "",
+    "github_token": "",
+    "trustmrr_api_key": "",
+    "resend_api_key": "",
+    "email_from": "",
+    "email_to": []
+  },
+  "services": {
+    "aisa_router_base_url": "https://tools.aisa.one",
+    "aisa_api_base_url": "https://api.aisa.one",
+    "goanyapi_base_url": "https://api.goanyapi.com"
+  },
 
   "x_accounts": {
     "labs": ["AnthropicAI", "claudeai", "OpenAI", "OpenAIDevs", "GoogleDeepMind", "GoogleAIStudio",

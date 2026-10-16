@@ -163,7 +163,7 @@ def cmd_leads(args, state: Path) -> int:
     return 0
 
 
-def serve_mcp() -> int:
+def serve_mcp(argv: list[str] | None = None) -> int:
     """`new-term-radar mcp`: the stdio MCP server under the package's own name, so a
     client that only knows the PyPI name can start it (`uvx --with mcp new-term-radar mcp`)."""
     try:
@@ -171,13 +171,14 @@ def serve_mcp() -> int:
     except ImportError:
         print('The MCP server needs the `mcp` package: pip install "new-term-radar[mcp]"', file=sys.stderr)
         return 1
-    mcp_server.main()
+    mcp_server.main(argv)
     return 0
 
 
 def main(argv: list[str] | None = None) -> int:
-    if (sys.argv[1:] if argv is None else argv)[:1] == ["mcp"]:
-        return serve_mcp()
+    actual = sys.argv[1:] if argv is None else argv
+    if actual[:1] == ["mcp"]:
+        return serve_mcp(actual[1:])
     prog = "python -m radar" if __package__ == "radar" else "new-term-radar"  # installed, the package has another name
     p = argparse.ArgumentParser(prog=prog, description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     p.add_argument("command", choices=["daily", "sources", "keywords", "leads", "pains"])
@@ -190,7 +191,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--out", help="write the report (Markdown) here; `daily` also writes a .json beside it")
     p.add_argument("--skip", default="", help="comma-separated: " + ",".join(sorted(SKIPPABLE)))
     p.add_argument("--new-sites", action="store_true", help="run the weekly new-site signal today")
-    p.add_argument("--revenue", action="store_true", help="run the weekly revenue signal today (needs TRUSTMRR_API_KEY)")
+    p.add_argument("--revenue", action="store_true", help="run the weekly revenue signal today (needs credentials.trustmrr_api_key)")
     p.add_argument("--asks", action="store_true", help="run the weekly Reddit asks signal today")
     p.add_argument("--extension", action="append", default=[], metavar="ID", help="for `pains`: a Chrome extension to read the reviews of")
     p.add_argument("--mail", action="store_true", help="mail the report (see radar/notify.py)")

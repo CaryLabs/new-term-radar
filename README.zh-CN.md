@@ -1,5 +1,7 @@
 # new-term-radar（新词雷达）
 
+> 本分支新增仅文件配置与Linux/Windows Bash启动器，请先读[用户手册](docs/USER_MANUAL.md)。凭证直接填写本地config.json；下文历史环境变量/CLI登录方式在此分支不再支持。
+
 [English](README.md)
 
 每天一份报告，列出 AI 领域里刚开始冒头的名字：新模型、新产品、新工具、新仓库。在它们最早被说出来的地方抓，而不是等关键词工具里有数据再看。

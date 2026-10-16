@@ -10,15 +10,13 @@ Set in config.json:
 
 `token_file` is a Google "authorized user" JSON holding client_id, client_secret and
 refresh_token for the scope webmasters.readonly (what google-auth's
-Credentials.to_json() writes; see the README). It is read from the config's directory,
-or from the environment variable GSC_TOKEN_JSON when the file is missing (for CI).
+Credentials.to_json() writes; see the README). It is read only from the config's directory.
 Queries that use search operators (quotes, site:, -word) are dropped: those are tools
 probing the results, not people.
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.parse
 import urllib.request
@@ -36,9 +34,9 @@ _OPERATOR = re.compile(r'"|\b(site|inurl|intitle|intext|filetype):|(^|\s)-\w|\*|
 
 def _token(cfg: dict) -> str:
     path = cfg["_dir"] / cfg["gsc"].get("token_file", "gsc_token.json")
-    raw = path.read_text() if path.exists() else os.environ.get("GSC_TOKEN_JSON", "")
+    raw = path.read_text(encoding="utf-8-sig") if path.exists() else ""
     if not raw:
-        raise RuntimeError(f"no Search Console token: {path.name} or GSC_TOKEN_JSON")
+        raise RuntimeError(f"no Search Console token file: {path.name}")
     tok = json.loads(raw)
     body = urllib.parse.urlencode({"client_id": tok["client_id"], "client_secret": tok["client_secret"],
                                    "refresh_token": tok["refresh_token"], "grant_type": "refresh_token"}).encode()

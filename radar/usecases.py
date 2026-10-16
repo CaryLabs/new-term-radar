@@ -44,7 +44,6 @@ from __future__ import annotations
 
 import base64
 import json
-import os
 import re
 import statistics
 import urllib.request
@@ -52,7 +51,7 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import UA, aisa, competition, goanyapi, review, snap
+from . import UA, aisa, competition, goanyapi, review, settings, snap
 
 POSTS_KEPT = 12
 POST_CHARS = 400
@@ -102,7 +101,7 @@ def due(names: list[str], seen: dict[str, dict], today: date, per_day: int, rech
 
 def _readme(repo: str) -> str:
     headers = {"Accept": "application/vnd.github+json", "User-Agent": UA}
-    tok = os.environ.get("GITHUB_TOKEN") or os.environ.get("GH_TOKEN")
+    tok = settings.credential("github_token")
     if tok:
         headers["Authorization"] = f"Bearer {tok}"
     try:
@@ -351,7 +350,7 @@ def country_series(rows: list[dict], c: dict) -> tuple[dict[str, list], int, lis
             return phrase, ([], 0), str(exc)
     out, cost, errors = {}, 0, []
     with ThreadPoolExecutor(max_workers=COUNTRY_WORKERS) as pool:
-        for phrase, (series, spent), error in pool.map(one, picked):
+        for phrase, (series, spent), error in pool.map(settings.inherit_context(one), picked):
             cost += spent
             if error:
                 errors.append(f"{phrase}: {error}")

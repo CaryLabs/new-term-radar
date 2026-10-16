@@ -14,12 +14,11 @@ evidence: the table then reads the job people pay for ("ai headshot generator"),
 brand. A run is `pages_growth + pages_new` requests; a standard key allows 10 a minute.
 
 TrustMRR's API policy forbids bulk republication and public SEO pages built from its data: the
-leads are for your own research, do not publish the list. Key: TRUSTMRR_API_KEY.
+leads are for your own research, do not publish the list. Key: credentials.trustmrr_api_key.
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import time
 import urllib.parse
@@ -27,7 +26,7 @@ import urllib.request
 from datetime import date
 from pathlib import Path
 
-from . import UA, snap
+from . import UA, settings, snap
 from .i18n import t
 
 API = "https://trustmrr.com/api/v1/startups"
@@ -38,7 +37,7 @@ PER_PAGE = 10               # the API's maximum
 
 
 def key() -> str:
-    return os.environ.get("TRUSTMRR_API_KEY", "").strip()
+    return settings.credential("trustmrr_api_key")
 
 
 def fetch(sort: str, page: int, c: dict) -> list[dict]:

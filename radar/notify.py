@@ -1,19 +1,18 @@
 """Mail a report (Markdown) through Resend. Optional.
 
-Environment: RESEND_API_KEY, EMAIL_FROM (an address on a domain you verified in Resend),
-RADAR_EMAIL_TO (comma-separated for several). Without RADAR_EMAIL_TO it says so and does
+Config: credentials.resend_api_key, credentials.email_from (an address on a domain you verified in Resend),
+credentials.email_to (comma-separated for several). Without credentials.email_to it says so and does
 nothing: a missing recipient must not fail the run that produced the report.
 Needs the `markdown` package (pip install markdown).
 """
 from __future__ import annotations
 
 import json
-import os
 import re
 import urllib.error
 import urllib.request
 
-from . import UA
+from . import UA, settings
 
 # Inline styles: Gmail drops a <style> block that sits outside <head>, which leaves
 # tables unbordered with centred headers. Every tag carries its own.
@@ -47,23 +46,25 @@ def html(md_text: str) -> str:
 
 
 def recipients(raw: str) -> list[str]:
-    """RADAR_EMAIL_TO as people type it: commas (also full-width), semicolons or spaces
+    """credentials.email_to as people type it: commas (also full-width), semicolons or spaces
     between addresses; quotes and angle brackets around them are dropped."""
     parts = re.split(r"[,，;；\s]+", raw.strip().strip("\"'"))
     return [p.strip("\"'<>") for p in parts if p.strip("\"'<>")]
 
 
 def send(subject: str, md_text: str) -> str:
-    to = recipients(os.environ.get("RADAR_EMAIL_TO", ""))
+    to = recipients(settings.recipients_value())
     if not to:
-        return "mail skipped: RADAR_EMAIL_TO not set"
+        return "mail skipped: credentials.email_to not set"
     bad = [i + 1 for i, a in enumerate(to) if not _ADDRESS.match(a)]
     if bad:   # the address itself stays out of the log
-        raise SystemExit(f"RADAR_EMAIL_TO: {len(to)} address(es), number {bad} is not an email address")
-    body = json.dumps({"from": os.environ["EMAIL_FROM"], "to": to, "subject": subject, "html": html(md_text)}).encode()
+        raise SystemExit(f"credentials.email_to: {len(to)} address(es), number {bad} is not an email address")
+    if not settings.credential("resend_api_key") or not settings.credential("email_from"):
+        raise SystemExit("mail requires credentials.resend_api_key and credentials.email_from")
+    body = json.dumps({"from": settings.credential("email_from"), "to": to, "subject": subject, "html": html(md_text)}).encode()
     # Resend sits behind Cloudflare, which answers Python's default User-Agent with 403 "error code: 1010".
     req = urllib.request.Request("https://api.resend.com/emails", data=body, method="POST", headers={
-        "Authorization": f"Bearer {os.environ['RESEND_API_KEY']}", "Content-Type": "application/json", "User-Agent": UA})
+        "Authorization": f"Bearer {settings.credential('resend_api_key')}", "Content-Type": "application/json", "User-Agent": UA})
     try:
         with urllib.request.urlopen(req, timeout=30) as res:
             return f"mail sent ({res.status})"

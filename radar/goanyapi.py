@@ -2,7 +2,7 @@
 
 Used for two things: Google Trends' *related queries* for a name, the terms real people
 searched together with it, and a 30-day daily Trends series for one country, which
-arrives settled up to yesterday (DataForSEO's worldwide series does not). Key: GOANYAPI_API_KEY. Without it every caller skips
+arrives settled up to yesterday (DataForSEO's worldwide series does not). Key: credentials.goanyapi_api_key. Without it every caller skips
 this source and the radar runs as before.
 
 One credit is $0.001; a related-queries lookup costs 6 (October 2026). Calls take 20 to
@@ -14,14 +14,13 @@ from __future__ import annotations
 
 import json
 from datetime import date, datetime, timezone
-import os
 import urllib.error
 import urllib.parse
 import urllib.request
 
-from . import UA
+from . import UA, settings
 
-BASE = os.environ.get("GOANYAPI_BASE_URL", "https://api.goanyapi.com") + "/api/v1/"
+BASE = "https://api.goanyapi.com/api/v1/"
 TIMEOUT = 90
 TRIES = 2
 MICROS_PER_CREDIT = 1000
@@ -32,12 +31,13 @@ class GoAnyError(RuntimeError):
 
 
 def key() -> str:
-    return os.environ.get("GOANYAPI_API_KEY", "").strip()
+    return settings.credential("goanyapi_api_key")
 
 
 def call(path: str, **params) -> tuple[dict, int]:
     """One GET. Returns (data, cost in micro-USD)."""
-    req = urllib.request.Request(BASE + path + "?" + urllib.parse.urlencode(params), headers={
+    base = settings.service("goanyapi_base_url", "https://api.goanyapi.com") + "/api/v1/"
+    req = urllib.request.Request(base + path + "?" + urllib.parse.urlencode(params), headers={
         "authorization": f"Bearer {key()}", "accept": "application/json", "user-agent": UA})
     error = ""
     for _ in range(TRIES):

@@ -10,9 +10,8 @@ Three tools:
   run_radar      one `sources` or `daily` run, returning its report. Paid, and takes minutes:
                  meant for a first try, the schedule belongs in cron or GitHub Actions.
 
-Where it looks: RADAR_CONFIG (default ./config.json) and RADAR_STATE (default ./state), the
-same files the command line uses, so the server sees what the scheduled runs kept. Keys come
-from the environment: AISA_API_KEY, and optionally GOANYAPI_API_KEY.
+Where it looks: --config (default ./config.json) and --state (default ./state), the
+same files the command line uses. Credentials come only from the local config JSON file.
 
 The transport is stdio, so nothing here may print to stdout: the tools run the radar with
 its output captured.
@@ -20,9 +19,10 @@ its output captured.
 from __future__ import annotations
 
 import asyncio
+import argparse
 import contextlib
 import io
-import os
+import sys
 import tempfile
 from pathlib import Path
 
@@ -41,8 +41,12 @@ server = MCPServer(
                  "say so before using them, and keep keyword_table to one or two names a call.")
 
 
+CONFIG_PATH = Path("config.json")
+STATE_PATH = Path("state")
+
+
 def _paths() -> tuple[Path, Path]:
-    return Path(os.environ.get("RADAR_CONFIG", "config.json")), Path(os.environ.get("RADAR_STATE", "state"))
+    return CONFIG_PATH, STATE_PATH
 
 
 def _quiet(fn, *args):
@@ -102,7 +106,13 @@ async def run_radar(command: str = "sources", skip: list[str] | None = None) -> 
     return await asyncio.to_thread(_run, command, skip or [])
 
 
-def main() -> None:
+def main(argv: list[str] | None = None) -> None:
+    global CONFIG_PATH, STATE_PATH
+    parser = argparse.ArgumentParser(description="New-term radar stdio MCP server (file configuration only)")
+    parser.add_argument("--config", default="config.json")
+    parser.add_argument("--state", default="state")
+    args = parser.parse_args(sys.argv[1:] if argv is None else argv)
+    CONFIG_PATH, STATE_PATH = Path(args.config).resolve(), Path(args.state).resolve()
     server.run("stdio")
 
 

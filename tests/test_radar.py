@@ -6,7 +6,7 @@ from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
 from radar import __main__ as cli
-from radar import breakout, config, gsc, i18n, judge, new_sites, notify, report, review, sitemaps, store
+from radar import breakout, config, gsc, i18n, judge, new_sites, notify, report, review, settings, sitemaps, store
 from radar.sources import base_name, novel_names
 from radar.terms import names
 
@@ -439,7 +439,7 @@ def test_mail_html_renders_tables():
 
 
 def test_mail_without_recipient_is_skipped(monkeypatch):
-    monkeypatch.delenv("RADAR_EMAIL_TO", raising=False)
+    settings.configure({})
     assert notify.send("s", "x").startswith("mail skipped")
 
 
@@ -619,7 +619,7 @@ def test_screen_marks_brands_and_other_names(monkeypatch):
 
 def test_with_a_key_related_queries_join_the_table_and_other_names_become_leads(cfg, tmp_path, monkeypatch):
     _fake_usecase_network(monkeypatch)
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     monkeypatch.setattr(usecases.goanyapi, "related_queries", lambda name, geo: (
         {"rising": ["ai photo detector", "gpt image 2.5", "synthid detector online"], "top": []}, 6000))
     monkeypatch.setattr(usecases, "screen", lambda model, name, ev, cands: [
@@ -641,8 +641,8 @@ def test_with_a_key_related_queries_join_the_table_and_other_names_become_leads(
 def test_without_a_key_the_table_says_the_source_is_off_and_a_failure_is_reported(cfg, tmp_path, monkeypatch):
     _fake_usecase_network(monkeypatch)
     uc = usecases.run(cfg, tmp_path, ["synthid detector"], {}, TODAY)
-    assert not uc["related"] and "GOANYAPI_API_KEY" in "\n".join(report.keyword_table(cfg, uc))
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    assert not uc["related"] and "credentials.goanyapi_api_key" in "\n".join(report.keyword_table(cfg, uc))
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
 
     def down(name, geo):
         raise usecases.goanyapi.GoAnyError("HTTP 502")
@@ -699,7 +699,7 @@ def test_a_flat_country_series_stays_flat():
 
 def test_names_and_big_generic_terms_take_their_shape_from_the_country(cfg, tmp_path, monkeypatch):
     _fake_usecase_network(monkeypatch)
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     cfg["usecases"]["related"] = False
     up = _month([50] * 24 + [77, 86, 83, 100, 94, 79])
     asked = []
@@ -794,8 +794,8 @@ def test_mcp_tools_answer_and_never_print(cfg, tmp_path, monkeypatch, capsys):
     pytest.importorskip("mcp")
     from radar import mcp_server
     (tmp_path / "config.json").write_text(json.dumps({"x_accounts": {"labs": ["a"]}}))
-    monkeypatch.setenv("RADAR_CONFIG", str(tmp_path / "config.json"))
-    monkeypatch.setenv("RADAR_STATE", str(tmp_path / "state"))
+    monkeypatch.setattr(mcp_server, "CONFIG_PATH", tmp_path / "config.json")
+    monkeypatch.setattr(mcp_server, "STATE_PATH", tmp_path / "state")
     store.record(store.connect(tmp_path / "state"), [_lead("photocraft", ["breakout"], named=0.95)], date.today())
     assert [r["term"] for r in mcp_server.recent_leads(7)["leads"]] == ["photocraft"]
 
@@ -824,18 +824,20 @@ def test_skills_have_a_name_and_a_description():
         assert not re.search(r"\$\d", text)
 
 
-def test_the_aisa_key_comes_from_the_environment_or_the_cli_login(tmp_path, monkeypatch):
+def test_the_aisa_key_comes_only_from_the_local_config(tmp_path, monkeypatch):
     from radar import aisa
-    monkeypatch.setattr(aisa.Path, "home", lambda: tmp_path)
-    monkeypatch.delenv("AISA_API_KEY", raising=False)
+    monkeypatch.setenv("AISA_API_KEY", "must-be-ignored")
     import pytest
-    with pytest.raises(aisa.AisaError, match="aisa login"):
+    with pytest.raises(aisa.AisaError, match="credentials.aisa_api_key"):
         aisa.key()
-    (tmp_path / ".aisa").mkdir()
-    (tmp_path / ".aisa" / "key").write_text("from-cli\n")
-    assert aisa.key() == "from-cli"
-    monkeypatch.setenv("AISA_API_KEY", "from-env")
-    assert aisa.key() == "from-env"
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"credentials": {"aisa_api_key": "from-file"}}))
+    config.load(path)
+    assert aisa.key() == "from-file"
+    path.write_text("{}")
+    config.load(path)
+    with pytest.raises(aisa.AisaError):
+        aisa.key()
 
 
 def test_every_manifest_carries_the_same_version():
@@ -891,7 +893,7 @@ def test_page_one_verdicts():
 
 def test_a_crowded_rising_term_is_watched_not_prioritized(cfg, tmp_path, monkeypatch):
     cfg["competition"]["max_rows"] = 8
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     strong = [("canva.com", "https://canva.com/ai", "Canva AI"), ("adobe.com", "https://adobe.com/x", "Adobe")]
     weak = [("tiny1.ai", "https://tiny1.ai/", "Free Tool"), ("tiny2.ai", "https://tiny2.ai/", "Free Tool"),
             ("tiny3.ai", "https://tiny3.ai/x", "A guide")]
@@ -950,7 +952,7 @@ def _product(slug, name, usd, growth=None, website="https://x.example", stealth=
 
 
 def test_revenue_reports_growth_then_a_product_that_left_zero(cfg, tmp_path, monkeypatch):
-    monkeypatch.setenv("TRUSTMRR_API_KEY", "k")
+    settings.configure({"credentials": {"trustmrr_api_key": "k"}})
     monkeypatch.setattr(revenue.time, "sleep", lambda s: None)
     pages = {"growth-desc": [_product("headshot", "HeadshotKit", 4200, 4500.0, "https://headshotkit.ai"),
                              _product("anon", "Anonymous startup", 9000, 2.0, website="", stealth=True),
@@ -971,10 +973,10 @@ def test_revenue_reports_growth_then_a_product_that_left_zero(cfg, tmp_path, mon
 
 
 def test_revenue_without_a_key_says_it_is_off(cfg, tmp_path, monkeypatch):
-    monkeypatch.delenv("TRUSTMRR_API_KEY", raising=False)
+    settings.configure({})
     rv = revenue.products(cfg, tmp_path)
     assert rv == {"skipped": True, "no_key": True}
-    assert "No TRUSTMRR_API_KEY" in "\n".join(report._revenue_lines(rv, cfg))
+    assert "No credentials.trustmrr_api_key" in "\n".join(report._revenue_lines(rv, cfg))
 
 
 
@@ -1050,7 +1052,7 @@ def test_asks_turns_reddit_requests_into_sized_jobs(cfg, tmp_path, monkeypatch):
 
 
 def test_pains_groups_reviews_posts_and_comments_into_gaps(cfg, monkeypatch):
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     ext = "a" * 32
 
     def serp(q, gl="US"):
@@ -1076,7 +1078,7 @@ def test_pains_groups_reviews_posts_and_comments_into_gaps(cfg, monkeypatch):
 
 def test_tutorial_asks_only_for_leads_marked_one_click(cfg, monkeypatch):
     cfg["tutorials"]["max_leads"] = 3
-    monkeypatch.setenv("GOANYAPI_API_KEY", "k")
+    settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     monkeypatch.setattr(pains.goanyapi, "serp", lambda q, gl="US": ([{"url": "https://www.youtube.com/watch?v=abcdefghijk", "title": "t", "rank": 1}], 2000))
     monkeypatch.setattr(pains.social, "youtube_comments", lambda vid: ([{"text": "Can someone make this one click? Too many steps", "likes": 12}], 1000))
     monkeypatch.setattr(pains.aisa, "chat", lambda model, system, user, max_tokens=2500: json.dumps(
