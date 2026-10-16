@@ -1,7 +1,136 @@
 {
+  "schema_version": 2,
+  "providers": {
+    "llm": {
+      "name": "deepseek",
+      "model": "deepseek-flash"
+    },
+    "x": {
+      "name": "twitterapis",
+      "max_pages": 5
+    },
+    "seo": {
+      "name": "dataforseo"
+    }
+  },
+  "limits": {
+    "network_enabled": false,
+    "daily_requests": 100,
+    "monthly_requests": 3000,
+    "cache_ttl_seconds": 86400
+  },
   "lang": "en",
+  "x_accounts": {
+    "labs": [],
+    "bloggers": []
+  },
+  "sitemaps": {},
+  "topics": {},
+  "known_terms": [],
+  "stop_words": [],
+  "judge": {
+    "model": "deepseek-flash",
+    "min_score": 0.5
+  },
+  "breakout": {
+    "window_days": 14,
+    "min_stars": 300,
+    "velocity_min": 200,
+    "delta_min": 400
+  },
+  "new_sites": {
+    "queries": {
+      "ai": "%ai%"
+    },
+    "weekday": 0,
+    "window_days": 90,
+    "min_etv": 1000,
+    "min_keywords": 20
+  },
+  "review": {
+    "after_days": 14,
+    "per_day": 5
+  },
+  "usecases": {
+    "per_day": 5,
+    "model": "deepseek-flash",
+    "min_volume": 50,
+    "trends_max": 10,
+    "recheck_days": 3,
+    "location_code": 2840,
+    "benchmark": "gpts",
+    "min_daily": 300,
+    "related": true,
+    "related_geo": "US",
+    "country_trends": true,
+    "country_min_volume": 1000,
+    "country_max": 8
+  },
+  "competition": {
+    "max_rows": 8,
+    "weak_dr": 30,
+    "location_code": 2840
+  },
+  "revenue": {
+    "weekday": 0,
+    "pages_growth": 3,
+    "pages_new": 3,
+    "min_revenue_usd": 500,
+    "category": "",
+    "max_leads": 10
+  },
+  "asks": {
+    "weekday": 0,
+    "time": "week",
+    "min_score": 2,
+    "model": "deepseek-flash",
+    "min_volume": 50,
+    "max_leads": 12,
+    "location_code": 2840,
+    "patterns": [
+      "\"is there an ai tool\"",
+      "\"is there an ai that\"",
+      "\"is there a tool that\"",
+      "\"any ai tool for\"",
+      "\"looking for an ai tool\"",
+      "\"i wish there was a tool\"",
+      "\"is there a way to automatically\"",
+      "\"how do i automate\"",
+      "\"tool that can automatically\"",
+      "\"recommend an ai\"",
+      "\"best ai tool for\"",
+      "\"ai tool that can\""
+    ]
+  },
+  "pains": {
+    "model": "deepseek-flash",
+    "extensions": 5,
+    "review_pages": 2,
+    "max_stars": 3,
+    "reddit_time": "year",
+    "videos": 3,
+    "reddit_queries": [
+      "{k} alternative",
+      "{k} frustrating",
+      "\"{k}\" \"doesn't work\"",
+      "{k} wish there was"
+    ]
+  },
+  "tutorials": {
+    "max_leads": 3,
+    "videos": 3,
+    "model": "deepseek-flash"
+  },
+  "gsc": {},
   "credentials": {
-    "aisa_api_key": "",
+    "deepseek_api_key": "",
+    "twitterapis_api_key": "",
+    "twitterapi_io_api_key": "",
+    "dataforseo_login": "",
+    "dataforseo_password": "",
+    "reddit_client_id": "",
+    "reddit_client_secret": "",
+    "youtube_api_key": "",
     "goanyapi_api_key": "",
     "github_token": "",
     "trustmrr_api_key": "",
@@ -10,49 +139,6 @@
     "email_to": []
   },
   "services": {
-    "aisa_router_base_url": "https://tools.aisa.one",
-    "aisa_api_base_url": "https://api.aisa.one",
     "goanyapi_base_url": "https://api.goanyapi.com"
-  },
-
-  "x_accounts": {
-    "labs": ["AnthropicAI", "claudeai", "OpenAI", "OpenAIDevs", "GoogleDeepMind", "GoogleAIStudio",
-             "Alibaba_Qwen", "deepseek_ai", "Kimi_Moonshot", "MiniMax__AI", "Zai_org", "xai",
-             "AIatMeta", "MistralAI", "huggingface", "cursor_ai",
-             "Kling_ai", "runwayml", "pika_labs", "LumaLabsAI", "Hailuo_AI", "higgsfield_ai", "ViduAI_official", "Alibaba_Wan", "dreamina_ai", 
-             "midjourney", "krea_ai"],
-    "bloggers": ["dotey", "op7418", "_akhaliq", "TeksEdge", "simonw", "swyx", "karpathy", "rowancheung"]
-  },
-
-  "sitemaps": {
-    "glama":         {"index": "https://glama.ai/sitemap.xml", "shards": "/(mcp-servers|mcp-remote-servers)/\\d+\\.xml$|blog-posts", "pause": 2},
-    "mcp.so":        {"index": "https://mcp.so/sitemap.xml", "shards": "section=(servers|agents|cli|clients|posts)\\b", "pause": 2},
-    "lobehub-mcp":   {"index": "https://lobehub.com/sitemap/mcp.xml", "pause": 5, "strip_locale": true},
-    "lobehub-skills": {"index": "https://lobehub.com/sitemap/skills.xml", "pause": 5, "strip_locale": true},
-    "toolify":       {"index": "https://www.toolify.ai/sitemap.xml", "shards": "sitemap_tools_(1[6-9]|[2-9]\\d)\\.xml$", "pause": 5, "strip_locale": true},
-    "aixploria":     {"index": "https://www.aixploria.com/sitemap.xml", "shards": "sitemap-posttype-post\\.20(2[6-9]|[3-9]\\d)\\d{2}\\.xml$", "pause": 2},
-    "ai-bot.cn":     {"index": "https://ai-bot.cn/sitemap.xml", "pause": 3},
-    "opentools":     {"index": "https://opentools.ai/sitemap.xml", "shards": "/(tools|llms|mcp)-sitemap\\.xml$", "pause": 2},
-    "dang":          {"index": "https://dang.ai/sitemap.xml", "pause": 2},
-    "clipfly":       {"index": "https://www.clipfly.ai/sitemaps/en.xml", "pause": 2, "strip_locale": true},
-    "aitoptools":    {"index": "https://aitoptools.com/sitemap.xml", "pause": 2},
-    "futurepedia":   {"index": "https://www.futurepedia.io/sitemap_tools.xml", "pause": 2}
-  },
-
-  "topics": {
-    "AI video": "\\bvideos?\\b|animat|avatar|lip ?sync|seedance|\\bveo\\b|\\bsora\\b|kling|hailuo|remotion|hyperframes"
-  },
-
-  "known_terms": ["claude code", "remotion"],
-  "stop_words": [],
-
-  "judge": {"model": "gpt-4.1-mini", "min_score": 0.5},
-  "breakout": {"window_days": 14, "min_stars": 300, "velocity_min": 200, "delta_min": 400},
-  "new_sites": {"queries": {"ai": "%ai%", "video": "%video%"}, "weekday": 0},
-  "revenue": {"weekday": 0, "pages_growth": 3, "pages_new": 3, "min_revenue_usd": 500, "category": "", "max_leads": 10},
-  "competition": {"max_rows": 8, "weak_dr": 30, "location_code": 2840},
-  "review": {"after_days": 14, "per_day": 5},
-  "usecases": {"per_day": 5, "model": "claude-sonnet-4-6", "benchmark": "gpts", "min_volume": 50, "min_daily": 300, "related": true, "related_geo": "US", "country_trends": true, "country_min_volume": 1000, "country_max": 8},
-
-  "gsc": {}
+  }
 }

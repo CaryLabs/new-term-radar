@@ -11,7 +11,21 @@ _active: ContextVar[dict] = ContextVar("radar_file_settings", default={})
 
 
 def configure(cfg: dict) -> None:
-    _active.set({"credentials": dict(cfg.get("credentials", {})), "services": dict(cfg.get("services", {}))})
+    from .providers import guard
+    guard.install()
+    _active.set({"credentials": dict(cfg.get("credentials", {})), "services": dict(cfg.get("services", {})),
+                 "providers": dict(cfg.get('providers', {})), "limits": dict(cfg.get('limits', {})),
+                 "usage_path": str(cfg.get('_dir', '.')) + '/state/provider-usage.sqlite3'})
+
+
+def option(name, default=None):
+    return _active.get().get(name, default)
+
+
+def set_state(path):
+    updated = dict(_active.get())
+    updated['usage_path'] = str(path / 'provider-usage.sqlite3')
+    _active.set(updated)
 
 
 def credential(name: str) -> str:

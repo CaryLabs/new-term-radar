@@ -1,3 +1,5 @@
+> remove-aisa 分支：已实现独立供应商适配，真实全功能验收尚未完成。配置和启动请先阅读 [配置启动指南](docs/REMOVE_AISA_GUIDE.md)。下文 AIsa 操作步骤属于旧版本，不适用于本分支。
+
 # new-term-radar
 
 > This branch uses local JSON credentials and Linux/Windows Bash launchers. Start with the [user manual](docs/USER_MANUAL.md). Historical environment-variable/CLI-login instructions below no longer apply on this branch.

@@ -36,27 +36,22 @@ def key() -> str:
 
 def call(path: str, **params) -> tuple[dict, int]:
     """One GET. Returns (data, cost in micro-USD)."""
+    from .providers import transport, ProviderError
     base = settings.service("goanyapi_base_url", "https://api.goanyapi.com") + "/api/v1/"
-    req = urllib.request.Request(base + path + "?" + urllib.parse.urlencode(params), headers={
-        "authorization": f"Bearer {key()}", "accept": "application/json", "user-agent": UA})
-    error = ""
-    for _ in range(TRIES):
-        try:
-            with urllib.request.urlopen(req, timeout=TIMEOUT) as res:
-                body = json.load(res)
-        except urllib.error.HTTPError as exc:
-            error = f"HTTP {exc.code}"
-            if exc.code < 500:
-                break
-            continue
-        except (OSError, ValueError) as exc:
-            error = f"{type(exc).__name__}: {exc}"
-            continue
-        data = body.get("data") or {}
-        if body.get("code") != "ok":
-            raise GoAnyError(str(body.get("message") or body)[:160])
-        return data, int(data.get("costCredits") or data.get("creditsUsed") or 0) * MICROS_PER_CREDIT
-    raise GoAnyError(error[:160])
+    if not key():raise GoAnyError("Missing credentials.goanyapi_api_key")
+    try:
+        body,ticket=transport.request("goanyapi",path,base+path+"?"+urllib.parse.urlencode(params),
+            headers={"authorization":"Bearer "+key(),"accept":"application/json"})
+    except ProviderError as exc:
+        raise GoAnyError(str(exc)) from None
+    data=body.get("data")
+    if body.get("code")!="ok" or not isinstance(data,dict):
+        transport.record(ticket,"provider_error")
+        raise GoAnyError("GoAnyAPI returned invalid or failed data; see provider console")
+    credits=data.get("costCredits",data.get("creditsUsed"))
+    cost=int(credits)*MICROS_PER_CREDIT if credits is not None else None
+    transport.record(ticket,"ok",cost)
+    return data,(cost or 0) if ticket is not None else 0
 
 
 def related_queries(term: str, geo: str = "US", window: str = "today 1-m") -> tuple[dict[str, list[str]], int]:

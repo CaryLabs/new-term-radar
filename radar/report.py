@@ -373,6 +373,8 @@ def keyword_table(cfg: dict, uc: dict) -> list[str]:
         lines += ["", t("uc_cosearch_h") + " " + ", ".join(t("uc_cosearch_item", term=x["term"], name=x["with"]) for x in uc["cosearch"])]
     if uc.get("no_evidence"):
         lines += ["", t("uc_no_evidence", names=", ".join(uc["no_evidence"]))]
+    if uc.get('volume_missing'):
+        lines += ['', t('uc_volume_missing', names=', '.join(uc['volume_missing']))]
     if uc.get("posts_error"):
         lines += ["", t("uc_posts_err", why=uc["posts_error"])]
     if uc.get("related_errors"):

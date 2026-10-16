@@ -1,3 +1,5 @@
+> remove-aisa 分支：已实现独立供应商适配，真实全功能验收尚未完成。配置和启动请先阅读 [配置启动指南](docs/REMOVE_AISA_GUIDE.md)。下文 AIsa 操作步骤属于旧版本，不适用于本分支。
+
 # new-term-radar（新词雷达）
 
 > 本分支新增仅文件配置与Linux/Windows Bash启动器，请先读[用户手册](docs/USER_MANUAL.md)。凭证直接填写本地config.json；下文历史环境变量/CLI登录方式在此分支不再支持。

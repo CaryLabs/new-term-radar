@@ -1,6 +1,6 @@
 ---
 name: new-term-radar
-description: One run from signal to decision. Finds the names of new AI models, products and repositories seen in the last 24 hours (X, Hugging Face, GitHub, sitemaps), then builds a keyword priority table for them, each new name and the generic search terms behind it, sized against Google Ads volume and Google Trends, with prioritize, watch or skip. Use when the user wants today's new AI keywords, an AI trend radar, or asks what new AI terms are worth building a page or tool for. Also takes names the user already has. Runs the new-term-radar command line; needs an AISA_API_KEY.
+description: One run from signal to decision. Finds the names of new AI models, products and repositories seen in the last 24 hours (X, Hugging Face, GitHub, sitemaps), then builds a keyword priority table for them, each new name and the generic search terms behind it, sized against Google Ads volume and Google Trends, with prioritize, watch or skip. Use when the user wants today's new AI keywords, an AI trend radar, or asks what new AI terms are worth building a page or tool for. Also takes names the user already has. Runs the new-term-radar command line; needs local config.json credentials.
 ---
 
 # New-term radar
@@ -9,10 +9,10 @@ The whole job in one run: collect what is new, then work out which keywords are 
 
 ## Before you run anything
 
-1. Find the radar: `$NEW_TERM_RADAR_DIR` if set, else `~/new-term-radar`; clone https://github.com/zhuyansen/new-term-radar there if missing. Run every command from that directory. Python 3.10 or newer; nothing to install.
-2. An AIsa key must be available, as `AISA_API_KEY` or from the AIsa CLI (`aisa login` stores it in `~/.aisa`): the X posts, the search volumes, Google Trends and the models all go through it. Without it, stop and say so. A key comes from https://go.aisa.one/yansen-zhu.
-3. `TRUSTMRR_API_KEY` is optional: with it the weekly ⑥ revenue signal reads the products people pay for that grow fastest (TrustMRR). Its leads are for the user's own research: TrustMRR's terms forbid republishing the data, so never paste the product list into anything public.
-4. `GOANYAPI_API_KEY` is optional (a key comes from https://goanyapi.com/r/ga-95708898fb). With it the table also holds what people really searched together with each name, and reads the bigger rows from one country's settled series. Without it, tell the user a "flat" reading is weaker evidence.
+1. Find the radar: the current checkout (Windows default E:/Codex/new-term-radar); do not silently clone another branch. Run every command from that directory. Python 3.10 or newer; nothing to install.
+2. Read local config.json and run the system launcher check. Use independent X, DeepSeek, DataForSEO, Reddit and YouTube credentials as required by the command. Do not read environment variables, .env or legacy gateway login files. Missing services must be reported, never silently skipped as success.
+3. `credentials.trustmrr_api_key` in config.json is optional: with it the weekly ⑥ revenue signal reads the products people pay for that grow fastest (TrustMRR). Its leads are for the user's own research: TrustMRR's terms forbid republishing the data, so never paste the product list into anything public.
+4. `credentials.goanyapi_api_key` in config.json is optional (a key comes from https://goanyapi.com/r/ga-95708898fb). With it the table also holds what people really searched together with each name, and reads the bigger rows from one country's settled series. Without it, tell the user a "flat" reading is weaker evidence.
 5. If there is no `config.json`, copy `config.example.json` and tell the user they are on the example list of X accounts and sitemaps.
 
 ## Choose the path
@@ -37,7 +37,7 @@ Say the cost and the time before either command, and do not run `daily` twice in
 
 The first `daily` run on a machine only builds snapshots, so it reports GitHub breakouts and little else. Say so; do not present it as a quiet day.
 
-On Mondays (or with `--asks`) `daily` also reads what people asked for on Reddit that week (⑦, about 0.12 USD): jobs an AI tool could do, sized and checked for room on page one. With `--revenue` and a `TRUSTMRR_API_KEY` it reads the products people pay for (⑥).
+On Mondays (or with `--asks`) `daily` also reads what people asked for on Reddit that week (⑦, about 0.12 USD): jobs an AI tool could do, sized and checked for room on page one. With `--revenue` and a `credentials.trustmrr_api_key` in config.json it reads the products people pay for (⑥).
 
 **The user wants to know what people complain about for a kind of tool** ("what's wrong with AI headshot tools?"):
 
@@ -45,7 +45,7 @@ On Mondays (or with `--asks`) `daily` also reads what people asked for on Reddit
 python -m radar pains "ai headshot" --json
 ```
 
-About 0.05 USD and a minute or two. It reads low-star Chrome Web Store reviews (needs `GOANYAPI_API_KEY`), Reddit complaints and comments under tutorial videos, and returns `gaps`: each with `gap`, `kind` (missing, too hard, quality, price, wants a tool), `count`, `phrase` (what someone with the problem would search) and `quotes` with links. Counts are of what was read, not of the market. App Store, Google Play and Trustpilot reviews are not reachable, and the radar does not read There's An AI For That or Facebook groups; say so if the user expects them.
+About 0.05 USD and a minute or two. It reads low-star Chrome Web Store reviews (needs `credentials.goanyapi_api_key` in config.json), Reddit complaints and comments under tutorial videos, and returns `gaps`: each with `gap`, `kind` (missing, too hard, quality, price, wants a tool), `count`, `phrase` (what someone with the problem would search) and `quotes` with links. Counts are of what was read, not of the market. App Store, Google Play and Trustpilot reviews are not reachable, and the radar does not read There's An AI For That or Facebook groups; say so if the user expects them.
 
 ## Read the result honestly
 

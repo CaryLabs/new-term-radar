@@ -51,7 +51,11 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date, timedelta
 from pathlib import Path
 
-from . import UA, aisa, competition, goanyapi, review, settings, snap
+from .providers import ProviderError
+from .providers import llm
+from .providers import seo
+from .providers import x as x_provider
+from . import UA, competition, goanyapi, review, settings, snap
 
 POSTS_KEPT = 12
 POST_CHARS = 400
@@ -67,8 +71,6 @@ NEW_BASE_MAX = 10          # a baseline under 10 (of 100) means the term barely 
 MAX_PER_NAME = 6
 STATE_DAYS = 30
 ASKED_MAX = 8              # names read in one `keywords` call: each costs several paid lookups
-SEARCH_TOOL = "get_twitter_tweet_advanced_search"
-VOLUME_TOOL = "post_dataforseo_keywords_gads_search_volume_live"
 SYSTEM = (
     "You help an SEO researcher who builds tool pages around new AI releases. You get the NAME of a new model, product "
     "or repository and EVIDENCE: popular posts about it and, for a repository, its README.\n"
@@ -124,12 +126,10 @@ def evidence(names: list[str], repos: dict[str, str], today: date,
     for n in names:
         error, tweets = "", []
         try:
-            data, spent = aisa.call([{"call_id": "s", "tool": SEARCH_TOOL, "arguments": {
-                "query": f'"{n}" min_faves:{MIN_FAVES} -filter:replies since:{since}', "queryType": "Top"}}])
+            d, spent = x_provider.search(f'"{n}" min_faves:{MIN_FAVES} -filter:replies since:{since}', sort="Top")
             cost += spent
-            d = data.get("s") or {}
             tweets = d.get("tweets") or (d.get("data") or {}).get("tweets") or []
-        except aisa.AisaError as exc:
+        except ProviderError as exc:
             error = " ".join(re.sub(r"<[^>]+>", " ", str(exc)).split())[:80]
         posts = sorted(({"text": " ".join((t.get("text") or "").split()), "likes": int(t.get("likeCount") or 0),
                          "by": (t.get("author") or {}).get("userName") or "?", "url": t.get("url", "")} for t in tweets),
@@ -162,7 +162,7 @@ def propose(model: str, name: str, ev: dict) -> list[dict]:
         return []
     posts = "\n".join(f"- ({p['likes']} likes) @{p['by']}: {p['text'][:POST_CHARS]}" for p in ev["posts"])
     user = f"NAME: {name}\n\nPOSTS:\n{posts or '(none found)'}\n" + (f"\nREADME of {ev['repo']}:\n{ev['readme']}\n" if ev["readme"] else "")
-    return parse(aisa.chat(model, SYSTEM, user, max_tokens=900), name)
+    return parse(llm.chat(model, SYSTEM, user, max_tokens=900), name)
 
 
 SCREEN = (
@@ -222,8 +222,8 @@ def screen(model: str, name: str, ev: dict, cands: list[dict]) -> list[dict]:
     user = f"NAME: {name}\n\nEVIDENCE:\n{posts or ev['readme'][:1200]}\n\nCANDIDATES:\n" + json.dumps(
         [{"i": i, "keyword": c["phrase"]} for i, c in enumerate(cands)], ensure_ascii=False)
     try:
-        answer = aisa.chat(model, SCREEN, user, max_tokens=600)
-    except aisa.AisaError:
+        answer = llm.chat(model, SCREEN, user, max_tokens=600)
+    except ProviderError:
         return cands
     m = re.search(r"\[.*\]", answer, re.S)
     try:
@@ -269,12 +269,14 @@ def volumes(phrases: list[str], location_code: int) -> tuple[dict[str, dict], in
     """{phrase: {"volume", "month"}} from Google Ads, one batch call."""
     if not phrases:
         return {}, 0
-    data, cost = aisa.call([{"call_id": "vol", "tool": VOLUME_TOOL, "arguments": {"body": [{
-        "keywords": phrases, "location_code": location_code, "language_code": "en"}]}}])
+    volume, cost = seo.live("volume", {"keywords": phrases, "location_code": location_code, "language_code": "en"})
+    data = {"vol": volume}
     out = {}
     for r in ((data.get("vol") or {}).get("tasks") or [{}])[0].get("result") or []:
         ms = r.get("monthly_searches") or []
-        out[r["keyword"]] = {"volume": int(r.get("search_volume") or 0),
+        if r.get('search_volume') is None:
+            continue  # Missing measurements are not measured zero.
+        out[r["keyword"]] = {"volume": int(r['search_volume']),
                              "month": f"{ms[0]['year']}-{ms[0]['month']:02d}" if ms else ""}
     return out, cost
 
@@ -438,9 +440,9 @@ def fetch_series(keywords: list[str], benchmark: str, today: date) -> tuple[dict
     window = {"date_from": (today - timedelta(days=TRENDS_DAYS)).isoformat(), "date_to": today.isoformat()}
     calls = []
     for i, k in enumerate(keywords):
-        calls.append({"call_id": f"s{i}", "tool": review.TOOL, "arguments": {"body": [{"keywords": [k], **window}]}})
-        calls.append({"call_id": f"p{i}", "tool": review.TOOL, "arguments": {"body": [{"keywords": [k, benchmark], **window}]}})
-    data, cost = aisa.call_all(calls)
+        calls.append({"id": f"s{i}", "params": {"keywords": [k], **window}})
+        calls.append({"id": f"p{i}", "params": {"keywords": [k, benchmark], **window}})
+    data, cost = seo.trends_many(calls)
     task = lambda cid: ((data.get(cid) or {}).get("tasks") or [{}])[0]  # noqa: E731
     return {k: {"solo": review._series(task(f"s{i}")), "pair": _pairs(task(f"p{i}"))} for i, k in enumerate(keywords)}, cost
 
@@ -526,6 +528,7 @@ def run(cfg: dict, state: Path, names: list[str], repos: dict[str, str], today: 
         cutoff = (today - timedelta(days=STATE_DAYS)).isoformat()
         snap.save(path, {n: s for n, s in seen.items() if s["first"] >= cutoff})
     return {"names": todo, "rows": rows, "proposed": asked, "relevant": len(proposed), "kept": len(generic), "benchmark": bench,
+            "volume_missing": sorted(set(proposed)-set(vol)),
             "bench_daily": round(daily) if daily else None, "volume_month": next((r["month"] for r in generic if r.get("month")), ""),
             "no_evidence": [n for n in todo if not ev[n]["posts"] and not ev[n]["readme"]],
             "posts_error": "; ".join(f"{n}: {e['error']}" for n, e in ev.items() if e.get("error")),

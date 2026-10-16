@@ -4,7 +4,7 @@
   python -m radar sources  [--config config.json] [--state state] [--out sources.md] [--mail]
 
 Signals:
-  ① x         names the accounts you follow said for the first time (AIsa)
+  ① x         names the accounts you follow said for the first time (independent providers)
   ① hf        models new to Hugging Face's trending top 50
   ② breakout  one new GitHub repo taking off on its own
   ③ sitemaps  pages other sites added since the last run
@@ -12,16 +12,15 @@ Signals:
   ⑥ revenue   products people pay for, growing fastest or newly listed (weekly; TrustMRR key)
   ⑦ asks      what people ask for on Reddit ("is there an AI tool that…"), sized (weekly; AIsa)
   ④ gsc       queries your own site got impressions for, for the first time (optional)
-  ⑤ review    leads from 14 days ago checked in Google Trends; hit rate per signal (AIsa)
-  usecases    the generic terms behind today's names, sized against a benchmark keyword (AIsa)
+  ⑤ review    leads from 14 days ago checked in Google Trends; hit rate per signal (independent providers)
+  usecases    the generic terms behind today's names, sized against a benchmark keyword (independent providers)
 
   python -m radar keywords "name one" "name two" [--repo "name one=owner/repo"] [--json]
   python -m radar leads    [--days 7] [--json]
   python -m radar pains    "keyword" [--extension ID] [--json]   what people complain about for a kind of tool
   python -m radar mcp      the MCP server on stdio (needs the `mcp` package)
 
-`keywords` builds the keyword table for names you give it, now (about $0.05 a name plus
-$0.09 a call for the volume lookup). `leads` lists what the radar has kept, with the
+`keywords` builds the keyword table for names you give it, now (provider-dependent API fees). `leads` lists what the radar has kept, with the
 review's verdicts and the hit rate per signal; it costs nothing.
 
 `sources` runs only ① (they change by the hour) and writes a report only when there is a
@@ -39,7 +38,8 @@ import sys
 from datetime import date
 from pathlib import Path
 
-from . import asks, breakout, config, gsc, new_sites, notify, pains, report, review, revenue, sitemaps, sources, store, usecases
+from . import asks, breakout, config, gsc, new_sites, notify, pains, report, review, revenue, run_lock, settings, sitemaps, sources, store, usecases
+from .providers import transport
 from .i18n import t
 
 SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "revenue", "asks", "gsc", "review", "judge", "usecases", "tutorials"}
@@ -71,6 +71,9 @@ def cmd_sources(args, cfg: dict, state: Path) -> int:
     extra = {"judge": judged, "record": run(lambda: {"recorded": store.record(conn, report.to_record(cfg, lead))})}
     errors = any(b.get("error") for b in (*blocks.values(), *extra.values()))
     if report.named(cfg, lead) or errors:
+        if args.out:
+            Path(args.out).with_suffix('.json').write_text(json.dumps(
+                {'leads':lead, **blocks, **extra, 'provider_usage':transport.summary()},ensure_ascii=False,indent=2,default=str),encoding='utf-8')
         _finish(args, report.sources(cfg, lead, blocks, extra), f"New-term radar · sources {date.today()}")
     else:
         print(t("sources_quiet") + "; ".join(f"{k} {v.get('posts', v.get('models', t('dash')))}" for k, v in blocks.items()))
@@ -111,7 +114,8 @@ def cmd_daily(args, cfg: dict, state: Path) -> int:
     text = report.daily(cfg, lead, blocks, found, rev, summ, extra)
     if args.out:
         Path(args.out).with_suffix(".json").write_text(json.dumps(
-            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ, "keywords": extra["usecases"]}, ensure_ascii=False, indent=1, default=str))
+            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ, "keywords": extra["usecases"],
+             'judge': extra['judge'], 'tutorials': extra['tutorials'], 'provider_usage': transport.summary()}, ensure_ascii=False, indent=1, default=str))
     _finish(args, text, f"New-term radar {date.today()}")
     return 0
 
@@ -177,6 +181,9 @@ def serve_mcp(argv: list[str] | None = None) -> int:
 
 def main(argv: list[str] | None = None) -> int:
     actual = sys.argv[1:] if argv is None else argv
+    if actual[:1] == ['migrate-config']:
+        from . import migrate_config
+        return migrate_config.main(actual[1:])
     if actual[:1] == ["mcp"]:
         return serve_mcp(actual[1:])
     prog = "python -m radar" if __package__ == "radar" else "new-term-radar"  # installed, the package has another name
@@ -187,6 +194,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--days", type=int, default=7, help="for `leads`: how far back")
     p.add_argument("--json", action="store_true", help="for `keywords` and `leads`: print JSON")
     p.add_argument("--config", default="config.json")
+    p.add_argument("--providers-config", type=Path, help="Separate provider credentials and limits JSON")
     p.add_argument("--state", default="state", help="directory for radar.db and the snapshots")
     p.add_argument("--out", help="write the report (Markdown) here; `daily` also writes a .json beside it")
     p.add_argument("--skip", default="", help="comma-separated: " + ",".join(sorted(SKIPPABLE)))
@@ -205,15 +213,17 @@ def main(argv: list[str] | None = None) -> int:
         return cmd_leads(args, state)
     if args.command == "keywords" and not args.names:
         p.error("keywords: give at least one name")
-    cfg = config.load(Path(args.config))
+    cfg = config.load(Path(args.config), args.providers_config)
+    settings.set_state(state)
     if "judge" in args.skip:
         cfg["judge"]["model"] = ""
     state.mkdir(parents=True, exist_ok=True)
-    if args.command == "keywords":
-        return cmd_keywords(args, cfg, state)
-    if args.command == "pains":
-        return cmd_pains(args, cfg)
-    return cmd_sources(args, cfg, state) if args.command == "sources" else cmd_daily(args, cfg, state)
+    with run_lock.hold(state):
+        if args.command == "keywords":
+            return cmd_keywords(args, cfg, state)
+        if args.command == "pains":
+            return cmd_pains(args, cfg)
+        return cmd_sources(args, cfg, state) if args.command == "sources" else cmd_daily(args, cfg, state)
 
 
 if __name__ == "__main__":
