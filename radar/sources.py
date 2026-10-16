@@ -11,6 +11,8 @@ from __future__ import annotations
 
 import json
 import re
+import sys
+import time
 import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
@@ -86,8 +88,33 @@ def x_new(cfg: dict, state: Path) -> dict:
     handles = accounts(cfg)
     if not handles:
         return {"skipped": True}
-    data, cost = aisa.call_all([{"call_id": h, "tool": "get_twitter_user_last_tweets", "arguments": {"userName": h}}
-                                for h in handles])
+    # The router executes a batch serially. One timeline can already take 40s,
+    # so five timelines in one HTTP request may exceed the upstream gateway's
+    # deadline even though our own socket timeout is longer. Never retry billed
+    # calls automatically. Keep the complete old vocabulary on any failure.
+    data, cost = {}, 0
+    for index, h in enumerate(handles, 1):
+        started = time.monotonic()
+        print(f"X [{index}/{len(handles)}] @{h}: requesting", file=sys.stderr, flush=True)
+        try:
+            response, spent = aisa.call([{"call_id": h, "tool": "get_twitter_user_last_tweets",
+                                          "arguments": {"userName": h}}])
+        except aisa.AisaError as exc:
+            return {"error": f"@{h}: {exc}; completed {len(data)}/{len(handles)}; no retry; vocabulary unchanged",
+                    "accounts": len(handles), "answered": len(data), "terms": [],
+                    "cost_micros": cost, "failed_request_cost_unknown": True}
+        cost += spent
+        item = response.get(h)
+        # Missing/invalid tool output is not a successful empty timeline.
+        # A valid empty timeline has data.tweets=[].
+        payload = item.get('data') if isinstance(item, dict) else None
+        tweets = payload.get('tweets') if isinstance(payload, dict) else None
+        if not isinstance(tweets, list) or any(not isinstance(tw, dict) for tw in tweets):
+            return {"error": f"@{h}: missing or invalid timeline; completed {len(data)}/{len(handles)}; vocabulary unchanged",
+                    "accounts": len(handles), "answered": len(data), "terms": [], "cost_micros": cost}
+        data[h] = item
+        print(f"X [{index}/{len(handles)}] @{h}: {len(tweets)} posts, {time.monotonic()-started:.1f}s",
+              file=sys.stderr, flush=True)
     posts = []
     for h in handles:
         for tw in ((data.get(h) or {}).get("data") or {}).get("tweets") or []:
