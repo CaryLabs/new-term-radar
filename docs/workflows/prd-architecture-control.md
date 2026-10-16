@@ -3,7 +3,7 @@
 - Work unit：prd-architecture
 - Scope contract：[计划与目标确认](../plans/prd-architecture-plan.md)
 - Branch：docs/prd-architecture；base：main
-- Current gate / next entry point：accepted slice commit
+- Current gate / next entry point：push
 - Status：in progress
 
 | Gate | Artifact / evidence | Decision |
@@ -17,6 +17,11 @@
 | implementation S1 | docs/README.md、docs/product/PRD.md、docs/architecture/ARCHITECTURE.md、docs/architecture/TRACEABILITY.md | prepared |
 | code review S1 | docs/reviews/code-review-20261016-202632.md | pass-with-risks |
 | fix / re-review S1 | 无 accepted findings；无需 fix；交叉核对源码与文档 | pass |
+| accepted slice commit | 81d3886 | pass |
+| aggregate deepreview | docs/reviews/code-review-20261016-202758.md | pass-with-risks |
+| aggregate fix / re-review | 无 accepted findings，复核 scope/契约/风险，无需 fix | pass |
+| accepted deepreview commit | 本次 gateflow: accept deepreview for prd-architecture commit | pass |
+| ready-to-open-draft-PR | 分支仅本 work unit；S1 完成；审查通过；95测试、文档与风险去向完整；不关联 issue（本任务非issue） | pass |
 
 验证：Python 3.11 + UTF-8 / .venv，95 tests passed（含 MCP）；8 Markdown / 78 local links / 49 test references / 14 requirements 与离线规则检查通过。初始环境失败与修正见 TRACEABILITY。
 
