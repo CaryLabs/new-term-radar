@@ -3,8 +3,8 @@
 - Work unit：prd-architecture
 - Scope contract：[计划与目标确认](../plans/prd-architecture-plan.md)
 - Branch：docs/prd-architecture；base：main
-- Current gate / next entry point：push
-- Status：in progress
+- Current gate / next entry point：用户审阅 draft PR #1（work unit completed）
+- Status：final closeout pass
 
 | Gate | Artifact / evidence | Decision |
 |---|---|---|
@@ -27,6 +27,9 @@
 | PR review | docs/reviews/pr-1-review-20261016-203219.md；完整远程diff与本地一致；CI当前未报告checks | pass-with-risks |
 | PR fix / re-review | 无accepted findings，无需fix；复核完整diff/元数据/风险分类 | pass |
 | accepted PR review commit | 本次 gateflow: accept PR review for prd-architecture commit | pass |
+| final PR push | e1c5548 已push，远程head一致，OPEN/draft，工作区干净；CI no checks reported | pass |
+| draft-PR-pass | PR review artifact / accepted commit / final push全部具备 | pass |
+| final closeout | docs/workflows/prd-architecture-closeout.md | pass |
 
 验证：Python 3.11 + UTF-8 / .venv，95 tests passed（含 MCP）；8 Markdown / 78 local links / 49 test references / 14 requirements 与离线规则检查通过。初始环境失败与修正见 TRACEABILITY。
 
@@ -43,3 +46,5 @@ Residual risks：见 TRACEABILITY R1–R4，均指定项目维护者及后续 wo
 | accepted deepreview | a100715 | 846890a |
 
 GitHub连接器创建PR权限不足（403），改由本机已登录gh完成。PR已附加至当前聊天。没有修改账号邮箱隐私设置，没有merge/mark ready/request reviewers。
+
+结项：[Final closeout](prd-architecture-closeout.md)。本任务非issue，issue关联/closeout comment不适用；后续入口为用户审阅草稿PR及文档。结项记录另行同步到同一工作分支，不改变已审查的PRD/架构/代码内容。
