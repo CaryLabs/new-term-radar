@@ -3,8 +3,8 @@
 - Work unit：prd-architecture
 - Scope contract：[计划与目标确认](../plans/prd-architecture-plan.md)
 - Branch：docs/prd-architecture；base：main
-- Current gate / next entry point：追加异模型验证已re-review pass，提交并同步到draft PR #1
-- Status：原主流程final closeout pass；追加验证待同步
+- Current gate / next entry point：用户审阅更新后的draft PR #1
+- Status：final closeout pass；用户追加异模型验证completed
 
 | Gate | Artifact / evidence | Decision |
 |---|---|---|
@@ -58,4 +58,6 @@ GitHub连接器创建PR权限不足（403），改由本机已登录gh完成。P
 - Re-review：两个reviewer均PASS，4/4已修复，无未修复blocking findings。
 - Validation：各自独立执行现有测试95 passed；主agent复现4项及no_data/负提前天数等离线反例；后续静态检查与远程同步结果以实际命令为准。
 - Residual risks：沿用R1–R4，owner项目维护者；作者异常状态提前写入、数据新鲜度和配额实现仅被准确披露，若改业务需后续work unit。
-- 当前入口：提交并push到现有草稿PR，不创建新PR或merge。
+- 静态验证：13份Markdown、87个本地链接、49个测试引用、14项需求映射及离线规则检查通过；git diff --check通过，改动仅docs。
+- 远程同步：1926355已push并由实际gh metadata确认remote head与本地相同；PR仍OPEN/draft，statusCheckRollup=[]，不声称CI已通过。
+- 当前入口：用户审阅更新后的草稿PR；本次记录补充提交后同步到同一PR，不创建新PR或merge。
