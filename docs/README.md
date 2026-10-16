@@ -9,6 +9,7 @@
 | [需求与代码追溯](architecture/TRACEABILITY.md) | 每条需求来自哪段实现、有什么测试、还有什么限制 | 开发者、审查者 |
 | [文档工作计划](plans/prd-architecture-plan.md) | 本轮工作的目标、非目标与验证范围 | 文档维护者 |
 | [Gateflow 进度与结项](workflows/prd-architecture-control.md) | 计划、实施、审查与草稿 PR 的证据 | 审查者 |
+| [异模型验证与修订](reviews/code-review-20261016-204502.md) | 两路独立验证、4项文档偏差与修正后复核 | 产品、开发与审查者 |
 
 阅读顺序：PRD → 架构 → 追溯。执行安装和配置时同时参考[中文 README](../README.zh-CN.md)与[配置示例](../config.example.json)。配置默认值以 [config.DEFAULTS](../radar/config.py) 为准。
 

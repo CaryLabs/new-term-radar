@@ -147,10 +147,13 @@ keywords：清理小写名字 → usecases.run(on_request=True) → 渲染。该
 - `report.leads` 是词汇合并与展示优先级所有者，键为原 term 字符串；名字概率归 judge；媒体/one_click 标记归 opportunity；两者不是相同评分。
 - `report.to_record` 先取通过名称过滤的前 20 行，再排除 known。模型失败造成未评分行时 `report.named` 将缺分默认通过，但排序缺分按 0 处理；已经评分的低分行仍会排除。部分失败时不等于所有词都变成未评分。
 - `usecases.names_to_read` 另有 READ_KINDS 与 0.8 阈值；未评分仍通过。daily 的输入包含已筛选 lead 及近期来源；`due` 在此基础上还会选 seen 中到期一次重读名字。
+- `usecases.due` 用 `[:per_day]` 截断本次调用的名字列表，没有按日期累计配额；默认5是每次机会研究调用上限，同日再次执行可处理其他名字。`sources.novel_names` 的 likes 只在该账号首次遇到一个 term 时累加一条帖子的点赞数；不累计同账号多帖，也不选该账号最高赞帖。
+- `breakout.breakouts` 在读取新仓库作者资料之前已保存星数与 flagged 快照。作者资料请求只对 `OSError` 回退为空显示名；JSON解析/结构异常可能使整个 breakout 块被 run 替换为 error，后续重跑又因 flagged 已保存而不再发出首次线索，不保证可通过重跑补回。
 - `usecases.evidence` 逐名字单请求抓 X，避免工具路由长批次；README 失败返回空文本。`propose` 无证据返回空候选，但其 chat 异常不在名字级捕获，可能使整步 usecases 失败；`screen` 异常则返回原候选，不强制剔除。
 - `relevant` 对缺相关性默认 1.0；相关查询最多 12 个候选/名字；`other_names` 要求新且 rising，排除同词族及本次其他名字等，最多 5 个/名字。语义判断仍依赖模型，不是注册实体库。
-- `usecases.shape` 的上涨按窗口内过线点数，started 再回溯峰值前连续一段。不能把两者统一描述为“连续上涨两/三天”。
+- `usecases.shape` 的上涨按窗口内过线点数，started 再回溯峰值前连续一段。不能把两者统一描述为“连续上涨两/三天”。窗口锚点为 `end=points[-1][0]`，全球/国家分别包含 `[end−30日,end]` / `[end−10日,end]`；rising/holding 的末3日也相对 end。代码只剔除未结算尾部，不校验新鲜度、排序或缺日；陈旧序列仍可能判 rising，非运行当日的实时状态保证。
 - 国家序列用于 shape；`own_per_day`、`size` 的规模仍用 AIsa 全球序列及月搜。`bench_daily` 使用有月搜至少 1000 的通用词反推基准量并取中位数；无校准时名字可能没有 per_day。推算用每月 30 天，非精确自然月。
+- `usecases.decide` 的 no_data 指走势不可用，不是日搜缺失。门槛判断用 `(per_day or 0)`：走势flat且日搜缺失会skip，rising/holding且缺失会watch；展示层仍把日搜缺失显示为破折号，不能反推真实搜索量为0。
 - `competition.verdict` 将部分未知组合归 crowded；assess 只在拿到页面对象时附竞争，不把所有外部失败都变成 unknown。dr dict 非空但该词无已知评分时 weak 可能为 0；DR 覆盖不是完整首页覆盖保证。
 - `review.rose` 使用峰值判定而非 shape 的持续点数；`first_rise` 从整个给定序列搜索，故 lead_days 可为负。call_id 缺失保持 due；存在但 tasks/序列空时可能保存 no_data。
 
@@ -228,7 +231,7 @@ HF 两个列表独立落盘，第二次抓取失败时第一份快照可能已�
 | judge | gpt-4.1-mini / min_score=0.5 | judge.score、report.named |
 | breakout | window_days=14,min_stars=300,velocity_min=200,delta_min=400 | breakout.breakouts/score |
 | new_sites | weekday=0,window_days=90,min_etv=1000,min_keywords=20 | cmd_daily 周条件、new_sites._calls/keep |
-| usecases | per_day=5,recheck_days=3,trends_max=10,min_volume=50,min_daily=300,benchmark=gpts | due/run/measure/decide |
+| usecases | per_day=5（每次调用上限，无每日累计配额）,recheck_days=3,trends_max=10,min_volume=50,min_daily=300,benchmark=gpts | due/run/measure/decide |
 | usecases 国家增强 | related/country_trends=true,related_geo=US,country_min_volume=1000,country_max=8 | split_related/country_series/measure |
 | competition | max_rows=8,weak_dr=30,location_code=2840 | competition.assess；asks 也调用 |
 | revenue / asks | weekday=0，分别 max_leads=10/12 | cmd_daily 及各采集器 |

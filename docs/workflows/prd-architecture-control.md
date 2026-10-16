@@ -3,8 +3,8 @@
 - Work unit：prd-architecture
 - Scope contract：[计划与目标确认](../plans/prd-architecture-plan.md)
 - Branch：docs/prd-architecture；base：main
-- Current gate / next entry point：用户审阅 draft PR #1（work unit completed）
-- Status：final closeout pass
+- Current gate / next entry point：追加异模型验证已re-review pass，提交并同步到draft PR #1
+- Status：原主流程final closeout pass；追加验证待同步
 
 | Gate | Artifact / evidence | Decision |
 |---|---|---|
@@ -48,3 +48,14 @@ Residual risks：见 TRACEABILITY R1–R4，均指定项目维护者及后续 wo
 GitHub连接器创建PR权限不足（403），改由本机已登录gh完成。PR已附加至当前聊天。没有修改账号邮箱隐私设置，没有merge/mark ready/request reviewers。
 
 结项：[Final closeout](prd-architecture-closeout.md)。本任务非issue，issue关联/closeout comment不适用；后续入口为用户审阅草稿PR及文档。结项记录另行同步到同一工作分支，不改变已审查的PRD/架构/代码内容。
+
+## 用户追加：异模型验证
+
+原结项后，用户明确要求以其他模型验证结果；沿用原仅文档的binding scope，不扩展为业务修复。派发配置为gpt-6-astra/high（PRD/追溯）与gpt-6.1-sol/high（架构/C01–C10）。两路均独立读源码；具体覆盖/未覆盖和后端ID可见性限制见[完整验证记录](../reviews/code-review-20261016-204502.md)。
+
+- 发现并accepted：4项中等文档偏差（每次调用上限≠每日配额、单账号首次帖点赞≠累计、shape末点锚定/陈旧序列、作者异常兜底仅OSError）。
+- Fix：仅修正PRD、架构、追溯及验证记录；另消歧日搜缺失与momentum。没有改变底层算法或新增业务测试。
+- Re-review：两个reviewer均PASS，4/4已修复，无未修复blocking findings。
+- Validation：各自独立执行现有测试95 passed；主agent复现4项及no_data/负提前天数等离线反例；后续静态检查与远程同步结果以实际命令为准。
+- Residual risks：沿用R1–R4，owner项目维护者；作者异常状态提前写入、数据新鲜度和配额实现仅被准确披露，若改业务需后续work unit。
+- 当前入口：提交并push到现有草稿PR，不创建新PR或merge。

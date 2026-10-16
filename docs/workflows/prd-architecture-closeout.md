@@ -53,3 +53,7 @@
 - 本任务不是issue修复，没有关联issue；issue link / closeout comment均not applicable；未创建外部issue或发送评论。
 - Work unit：completed。没有merge、approve、mark ready或请求reviewer。
 - Next entry point：用户审阅草稿PR及文档；如需修改，继续此文档分支；用户决定merge后，再为选定后续工作单独确认目标。本流程不自动进入产品实现。
+
+## 结项后的用户追加验证
+
+用户随后要求使用其他模型核验。原“无accepted findings”仅描述当时主agent自审，不能覆盖追加验证的新发现。[异模型验证记录](../reviews/code-review-20261016-204502.md)记载4项中等文档偏差，均已accepted并修正文档；两路修订re-review均PASS，独立原有测试各95 passed。修正不代表作者异常恢复、趋势新鲜度或配额实现已改变；底层代码和测试均未改。最终同步与状态见control。
