@@ -22,7 +22,6 @@ import asyncio
 import argparse
 import contextlib
 import io
-import json
 import sys
 import tempfile
 from pathlib import Path
@@ -44,7 +43,6 @@ server = MCPServer(
 
 CONFIG_PATH = Path("config.json")
 STATE_PATH = Path("state")
-PROVIDERS_PATH = None
 
 
 def _paths() -> tuple[Path, Path]:
@@ -67,14 +65,9 @@ def recent_leads(days: int = 7) -> dict:
 
 def _keyword_table(names: list[str], repos: dict[str, str]) -> dict:
     cfg_path, state = _paths()
-    cfg = config.load(cfg_path, PROVIDERS_PATH)
-    cli.settings.set_state(state)
-    with cli.run_lock.hold(state):
-        uc, text = _quiet(cli.keyword_table, cfg, state, names, repos)
+    uc, text = _quiet(cli.keyword_table, config.load(cfg_path), state, names, repos)
     return {"table_markdown": text, "rows": uc.get("rows", []), "incomplete": cli.usecases.degraded(uc),
-            "cost_usd": round(uc.get("cost_micros", 0) / 1e6, 3),
-            "cost_note": "Partial data cost/estimate, not complete billing; see provider_usage",
-            "provider_usage": cli.transport.summary()}
+            "cost_usd": round(uc.get("cost_micros", 0) / 1e6, 3)}
 
 
 @server.tool()
@@ -95,13 +88,8 @@ def _run(command: str, skip: list[str]) -> dict:
     with tempfile.TemporaryDirectory() as tmp:
         out = Path(tmp) / "report.md"
         args = [command, "--config", str(cfg_path), "--state", str(state), "--out", str(out)]
-        if PROVIDERS_PATH is not None:
-            args += ["--providers-config", str(PROVIDERS_PATH)]
         _quiet(cli.main, args + (["--skip", ",".join(skip)] if skip else []))
-        data=json.loads(out.with_suffix('.json').read_text(encoding='utf-8')) if out.with_suffix('.json').exists() else {}
-        failed=[k for k,v in data.items() if isinstance(v,dict) and (v.get('error') or v.get('errors'))]
-        return {"report_markdown": out.read_text() if out.exists() else "", "wrote_report": out.exists(),
-                'incomplete':bool(failed), 'failed_sources':failed, 'provider_usage':data.get('provider_usage',{})}
+        return {"report_markdown": out.read_text() if out.exists() else "", "wrote_report": out.exists()}
 
 
 @server.tool()
@@ -119,14 +107,12 @@ async def run_radar(command: str = "sources", skip: list[str] | None = None) -> 
 
 
 def main(argv: list[str] | None = None) -> None:
-    global CONFIG_PATH, STATE_PATH, PROVIDERS_PATH
+    global CONFIG_PATH, STATE_PATH
     parser = argparse.ArgumentParser(description="New-term radar stdio MCP server (file configuration only)")
     parser.add_argument("--config", default="config.json")
     parser.add_argument("--state", default="state")
-    parser.add_argument("--providers-config", type=Path)
     args = parser.parse_args(sys.argv[1:] if argv is None else argv)
     CONFIG_PATH, STATE_PATH = Path(args.config).resolve(), Path(args.state).resolve()
-    PROVIDERS_PATH = args.providers_config.resolve() if args.providers_config else None
     server.run("stdio")
 
 

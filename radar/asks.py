@@ -1,7 +1,7 @@
 """Signal ⑦: what people ask for on Reddit ("is there an AI tool that…").
 
 A request is demand said out loud. Once a week (asks.weekday, Monday by default) this searches
-Reddit for the ways people ask for a tool (`patterns`, $0.0019 a query through independent providers), keeps the
+Reddit for the ways people ask for a tool (`patterns`, $0.0019 a query through AIsa), keeps the
 posts of the last week, and a small model sorts each: a request for something that does a job,
 a complaint about a tool, a solution someone shares, or other. For requests and complaints it
 writes the job as the words a person would search ("convert powerpoint slides to notes"). The
@@ -18,9 +18,7 @@ import re
 from datetime import date
 from pathlib import Path
 
-from .providers import ProviderError
-from .providers import llm
-from . import competition, snap, social, usecases
+from . import aisa, competition, snap, social, usecases
 from .i18n import t
 
 CHUNK = 20
@@ -63,7 +61,7 @@ def collect(c: dict) -> tuple[list[dict], int, list[str]]:
     for q in c["patterns"]:
         try:
             got, spent = social.reddit(q, time=c["time"], sort="top", limit=25)
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             errors.append(f"{q}: {exc}")
             continue
         cost += spent
@@ -82,9 +80,9 @@ def classify(model: str, posts: list[dict]) -> tuple[list[dict], list[str]]:
         user = json.dumps([{"i": i, "title": p["title"], "text": p["text"][:300], "subreddit": p["subreddit"]}
                            for i, p in enumerate(chunk)], ensure_ascii=False)
         try:
-            for i, v in parse(llm.chat(model, SYSTEM, user), len(chunk)).items():
+            for i, v in parse(aisa.chat(model, SYSTEM, user), len(chunk)).items():
                 kept.append({**chunk[i], **v})
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             errors.append(str(exc)[:160])
     return kept, errors
 
@@ -117,8 +115,7 @@ def asks(cfg: dict, state: Path, today: date | None = None) -> dict:
               "examples": [f"r/{p['subreddit']} ({p['score']}): {p['title'][:90]}" for p in r["posts"][:2]],
               "note": t("note_ask", n=len(r["posts"]), subs=", ".join(f"r/{s}" for s in r["subreddits"][:3]))}
              for r in rows if not r["again"]]
-    quiet = sorted((dict(j, volume=vol.get(k, {}).get("volume"), volume_status='observed' if k in vol else 'no_data') for k, j in jobs.items()
+    quiet = sorted((dict(j, volume=vol.get(k, {}).get("volume", 0)) for k, j in jobs.items()
                     if vol.get(k, {}).get("volume", 0) < c["min_volume"]), key=lambda j: (-len(j["posts"]), -j["score"]))[:c["max_leads"]]   # many askers over one viral thread
     return {"read": len(posts), "asks": len(kept), "unsized": len(jobs) - len(rows), "rows": rows, "quiet": quiet,
-            "volume_missing": sorted(set(jobs)-set(vol)),
             "terms": terms, "errors": errors + failed + comp_errors, "cost_micros": cost}

@@ -8,7 +8,6 @@ import sys
 from pathlib import Path
 
 from . import __main__ as cli, config, settings
-from .providers import preflight
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -19,17 +18,16 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(description=__doc__, allow_abbrev=False)
     parser.add_argument("command", choices=["check", "daily", "sources", "keywords", "leads", "pains", "mcp"])
     parser.add_argument("--config", default="config.json")
-    parser.add_argument("--providers-config", type=Path, help="Separate provider credentials and limits JSON")
     parser.add_argument("--out")
     parser.add_argument("--mail", action="store_true")
-    parser.add_argument('--skip', default='')
     opts, _ = parser.parse_known_args(args)
     try:
         if sys.version_info < (3, 10):
             raise ValueError("Python 3.10 or newer is required")
         if opts.command != "leads":
-            cfg = config.load(Path(opts.config), opts.providers_config)
-            preflight.check(opts.command, opts.skip.split(','))
+            cfg = config.load(Path(opts.config))
+            if not settings.credential("aisa_api_key"):
+                raise ValueError("fill credentials.aisa_api_key in the local config file before full-mode startup")
             for key in ("goanyapi_api_key", "trustmrr_api_key"):
                 if not settings.credential(key):
                     print(f"Optional integration disabled: credentials.{key} is empty", file=sys.stderr)

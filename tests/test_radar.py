@@ -1,5 +1,3 @@
-import pytest
-from radar.providers import ProviderError
 """The radar's pure logic: name extraction, signal scoring, the store, the judge's parsing,
 the review's verdict, the reports. Network calls are not exercised here."""
 import json
@@ -173,7 +171,7 @@ def test_new_site_name_terms():
 
 def test_new_sites_drop_domains_ranking_for_a_handful_of_terms(cfg, tmp_path, monkeypatch):
     answer = {"tasks": [{"result": [{"items": json.loads(FIXTURE.read_text())}]}]}
-    monkeypatch.setattr(new_sites.seo, "new_sites_many", lambda calls: ({c["id"]: answer for c in calls}, 127000))
+    monkeypatch.setattr(new_sites.aisa, "call_all", lambda calls: ({c["call_id"]: answer for c in calls}, 127000))
     out = new_sites.new_sites(cfg, tmp_path, date(2026, 10, 6))
     domains = [r["domain"] for r in out["sites"]]
     assert "ai-hailuo.com" in domains and "neonwin386.ai" not in domains and "oyo88.ai" not in domains
@@ -183,7 +181,7 @@ def test_new_sites_drop_domains_ranking_for_a_handful_of_terms(cfg, tmp_path, mo
 
 
 def test_new_sites_query_needs_both_dates(cfg):
-    body = new_sites._calls(cfg["new_sites"], date(2026, 10, 6))[0]["params"]
+    body = new_sites._calls(cfg["new_sites"], date(2026, 10, 6))[0]["arguments"]["body"][0]
     fields = [f[0] for f in body["filters"] if isinstance(f, list)]
     assert fields[:2] == ["created_datetime", "first_seen"] and body["filters"][0][2].startswith("2026-07-08")
 
@@ -218,15 +216,15 @@ def test_judge_scores_rows_in_chunks(monkeypatch):
         n = len(json.loads(user))
         sizes.append(n)
         return json.dumps([{"i": i, "score": 0.8} for i in range(n)])
-    monkeypatch.setattr(judge.llm, "chat", chat)
+    monkeypatch.setattr(judge.aisa, "chat", chat)
     assert judge.score(rows, "m") == {"judged": judge.CHUNK + 2} and sizes == [judge.CHUNK, 2]
     assert all(r["named"] == 0.8 for r in rows)
 
 
 def test_judge_failure_leaves_rows_unscored(monkeypatch):
     def chat(*a):
-        raise ProviderError("HTTP 402: no credit")
-    monkeypatch.setattr(judge.llm, "chat", chat)
+        raise judge.aisa.AisaError("HTTP 402: no credit")
+    monkeypatch.setattr(judge.aisa, "chat", chat)
     rows = [{"term": "strata", "examples": []}]
     assert "error" in judge.score(rows, "m") and "named" not in rows[0]
 
@@ -344,10 +342,10 @@ def test_review_sends_one_trends_task_per_call():
     # DataForSEO's live endpoint runs only the first task of a body
     due = [("strata", date(2026, 9, 25), ["strata", "niko1221 strata", "niko strata", "a fourth"]), ("veo 3 free", date(2026, 10, 3), [])]
     calls, plan = review.plan_calls(due, date(2026, 10, 17))
-    assert len(calls) == 4 and all(len(c["params"]["keywords"]) == 1 for c in calls)
-    assert [c["params"]["keywords"] for c in calls[:3]] == [["strata"], ["niko1221 strata"], ["niko strata"]]
-    assert calls[3]["params"]["keywords"] == ["veo 3 free"]
-    assert calls[0]["params"]["date_to"] == "2026-10-09" and calls[3]["params"]["date_to"] == "2026-10-17"
+    assert len(calls) == 4 and all(len(c["arguments"]["body"]) == 1 for c in calls)
+    assert [c["arguments"]["body"][0]["keywords"] for c in calls[:3]] == [["strata"], ["niko1221 strata"], ["niko strata"]]
+    assert calls[3]["arguments"]["body"][0]["keywords"] == ["veo 3 free"]
+    assert calls[0]["arguments"]["body"][0]["date_to"] == "2026-10-09" and calls[3]["arguments"]["body"][0]["date_to"] == "2026-10-17"
 
 
 def test_review_stores_the_verdict(cfg, tmp_path, monkeypatch):
@@ -356,7 +354,7 @@ def test_review_stores_the_verdict(cfg, tmp_path, monkeypatch):
     points = [{"date_from": (date(2026, 9, 19) + timedelta(days=i)).isoformat(), "values": [v]}
               for i, v in enumerate([0, 0, 0, 0, 0, 0, 0, 0, 0, 30, 30, 100, 0, 0])]
     answer = {"tasks": [{"result": [{"items": [{"data": points}]}]}]}
-    monkeypatch.setattr(review.seo, "trends_many", lambda calls: ({c["id"]: answer for c in calls}, 1200))
+    monkeypatch.setattr(review.aisa, "call_all", lambda calls: ({c["call_id"]: answer for c in calls}, 1200))
     out = review.review(cfg, conn, date(2026, 10, 10))
     assert out["checked"] == [{"term": "niko strata", "first_seen": "2026-09-25", "verdict": "hit", "lead_days": 3}]
     assert conn.execute("SELECT verdict, lead_days FROM leads").fetchone() == ("hit", 3)
@@ -576,20 +574,20 @@ def test_review_ignores_the_unsettled_days(cfg, tmp_path, monkeypatch):
     store.record(conn, [_lead("ai image detector", ["usecase"])], date(2026, 9, 28))
     points = [{"date_from": d.isoformat(), "values": [v]} for d, v in _daily([5] * 43 + [0, 100])]
     answer = {"tasks": [{"result": [{"items": [{"data": points}]}]}]}
-    monkeypatch.setattr(review.seo, "trends_many", lambda calls: ({c["id"]: answer for c in calls}, 1200))
+    monkeypatch.setattr(review.aisa, "call_all", lambda calls: ({c["call_id"]: answer for c in calls}, 1200))
     assert review.review(cfg, conn, TODAY)["checked"][0]["verdict"] == "miss"
 
 
 def test_screen_drops_loosely_related_keywords_and_keeps_all_when_the_call_fails(monkeypatch):
     cands = [{"phrase": p, "brand": False} for p in ("ai image detector", "chatgpt alternative", "ai audio detector")]
     ev = {"posts": [{"text": "check if any image is AI generated", "likes": 900, "by": "a"}], "readme": ""}
-    monkeypatch.setattr(usecases.llm, "chat", lambda *a, **k: '[{"i": 0, "score": 0.95}, {"i": 1, "score": 0.2}, {"i": 2, "score": 0.7}]')
+    monkeypatch.setattr(usecases.aisa, "chat", lambda *a, **k: '[{"i": 0, "score": 0.95}, {"i": 1, "score": 0.2}, {"i": 2, "score": 0.7}]')
     kept = usecases.relevant(usecases.screen("m", "synthid detector", ev, cands))
     assert [(c["phrase"], c["relevance"]) for c in kept] == [("ai image detector", 0.95), ("ai audio detector", 0.7)]
 
     def down(*a, **k):
-        raise ProviderError("HTTP 500")
-    monkeypatch.setattr(usecases.llm, "chat", down)
+        raise usecases.aisa.AisaError("HTTP 500")
+    monkeypatch.setattr(usecases.aisa, "chat", down)
     assert usecases.screen("m", "synthid detector", ev, cands) == cands
 
 
@@ -612,7 +610,7 @@ def test_related_queries_split_into_long_tails_and_candidates():
 def test_screen_marks_brands_and_other_names(monkeypatch):
     cands = [{"phrase": "free up mac disk space", "brand": False, "source": "model"},
              {"phrase": "gpt image 2.5", "brand": False, "source": "searched"}]
-    monkeypatch.setattr(usecases.llm, "chat", lambda *a, **k:
+    monkeypatch.setattr(usecases.aisa, "chat", lambda *a, **k:
                         '[{"i": 0, "score": 0.8, "brand": true, "name": false}, {"i": 1, "score": 0.1, "brand": true, "name": true}]')
     viewed = usecases.screen("m", "removemacai", {"posts": [], "readme": "frees 12 GB"}, cands)
     assert viewed[0]["brand"] and viewed[1]["is_name"]
@@ -754,11 +752,11 @@ def test_only_things_are_read_for_generic_terms_not_words_that_surged():
 
 
 def test_a_failed_post_search_costs_one_name_its_posts_not_the_step(monkeypatch):
-    def call(query, sort="Top"):
-        if "photocraft" in query:
-            raise ProviderError("HTTP 504: <html><h1>504 Gateway Time-out</h1></html>")
-        return {"tweets": [{"text": "check any image", "likeCount": 900, "author": {"userName": "a"}}]}, 3000
-    monkeypatch.setattr(usecases.x_provider, "search", call)
+    def call(calls):
+        if "photocraft" in calls[0]["arguments"]["query"]:
+            raise usecases.aisa.AisaError("HTTP 504: <html><h1>504 Gateway Time-out</h1></html>")
+        return {"s": {"tweets": [{"text": "check any image", "likeCount": 900, "author": {"userName": "a"}}]}}, 3000
+    monkeypatch.setattr(usecases.aisa, "call", call)
     monkeypatch.setattr(usecases, "_readme", lambda repo: "PhotoCraft opens real PSD files")
     ev, cost = usecases.evidence(["photocraft", "synthid detector"], {"photocraft": "storytold/photocraft"}, TODAY)
     assert cost == 3000 and ev["photocraft"]["readme"] and ev["photocraft"]["posts"] == []
@@ -820,23 +818,26 @@ def test_skills_have_a_name_and_a_description():
         text = (root / name / "SKILL.md").read_text()
         head = re.match(r"---\nname: (\S+)\ndescription: (.+)\n---\n", text)
         assert head and head.group(1) == name and 100 < len(head.group(2)) < 1024
-        assert "python -m radar" in text and "local config.json" in text
+        assert "python -m radar" in text and "AISA_API_KEY" in text
         # Claude Code replaces $0, $1 ... in a skill's text with the user's arguments: "$0.05" came out
         # as "<what the user typed>.05" on the first real run. Amounts are written "0.05 USD".
         assert not re.search(r"\$\d", text)
 
 
-def test_deepseek_key_comes_only_from_local_file(tmp_path, monkeypatch):
-    from radar.providers import transport
-    monkeypatch.setenv("DEEPSEEK_API_KEY", "must-be-ignored")
-    with pytest.raises(ProviderError): transport.credential("deepseek_api_key")
-    path=tmp_path/"config.json"
-    path.write_text(json.dumps({"credentials":{"deepseek_api_key":"from-file"}}))
+def test_the_aisa_key_comes_only_from_the_local_config(tmp_path, monkeypatch):
+    from radar import aisa
+    monkeypatch.setenv("AISA_API_KEY", "must-be-ignored")
+    import pytest
+    with pytest.raises(aisa.AisaError, match="credentials.aisa_api_key"):
+        aisa.key()
+    path = tmp_path / "config.json"
+    path.write_text(json.dumps({"credentials": {"aisa_api_key": "from-file"}}))
     config.load(path)
-    assert transport.credential("deepseek_api_key")=="from-file"
+    assert aisa.key() == "from-file"
     path.write_text("{}")
     config.load(path)
-    with pytest.raises(ProviderError): transport.credential("deepseek_api_key")
+    with pytest.raises(aisa.AisaError):
+        aisa.key()
 
 
 def test_every_manifest_carries_the_same_version():
@@ -883,7 +884,7 @@ def _serp(results, ads=False):
 
 def test_page_one_verdicts():
     assert competition.verdict(3, None) == "open" and competition.verdict(0, 15) == "open"
-    assert competition.verdict(0, 55) == "crowded" and competition.verdict(None, None) == "unknown"
+    assert competition.verdict(0, 55) == "crowded" and competition.verdict(None, None) == "crowded"
     assert competition.verdict(1, 30) == "mixed" and competition.verdict(None, 30) == "mixed"
     assert competition.page_kind("youtube.com", "https://youtube.com/watch?v=1", "x") == "video"
     assert competition.page_kind("headshotpro.com", "https://headshotpro.com/", "Free AI Headshot Generator") == "tool"
@@ -898,13 +899,14 @@ def test_a_crowded_rising_term_is_watched_not_prioritized(cfg, tmp_path, monkeyp
             ("tiny3.ai", "https://tiny3.ai/x", "A guide")]
     pages = {"crowded term": _serp(strong, ads=True), "open term": _serp(strong + weak)}
 
-    def call(operation, params):
-        if operation == "serp":
-            return pages[params["keyword"]], 2000
+    def call(calls):
+        c = calls[0]
+        if c["call_id"] == "serp":
+            return {"serp": pages[c["arguments"]["body"][0]["keyword"]]}, 2000
         items = [{"keyword": k, "keyword_properties": {"keyword_difficulty": 60 if k == "crowded term" else 25}}
-                 for k in params["keywords"]]
-        return {"tasks": [{"result": [{"items": items}]}]}, 12000
-    monkeypatch.setattr(competition.seo, "live", call)
+                 for k in c["arguments"]["body"][0]["keywords"]]
+        return {"kd": {"tasks": [{"result": [{"items": items}]}]}}, 12000
+    monkeypatch.setattr(competition.aisa, "call", call)
     rated = {"canva.com": 94, "adobe.com": 96, "tiny1.ai": 8, "tiny2.ai": 12, "tiny3.ai": 21}
     asked = []
 
@@ -1032,7 +1034,7 @@ def test_asks_turns_reddit_requests_into_sized_jobs(cfg, tmp_path, monkeypatch):
                                        _reddit_post("c", "Rate my setup", 1)],
              '"how do i automate"': [_reddit_post("a", "Is there an AI tool to add b-roll automatically?", 45)]}
     monkeypatch.setattr(asks.social, "reddit", lambda q, **k: (posts[q], 1880))
-    monkeypatch.setattr(asks.llm, "chat", lambda model, system, user: json.dumps(
+    monkeypatch.setattr(asks.aisa, "chat", lambda model, system, user: json.dumps(
         [{"i": i, "kind": "request", "job": job, "ai": True} for i, job in enumerate(
             ["add b roll automatically", "convert slides to notes"])]))
     monkeypatch.setattr(asks.usecases, "volumes", lambda phrases, loc: (
@@ -1064,7 +1066,7 @@ def test_pains_groups_reviews_posts_and_comments_into_gaps(cfg, monkeypatch):
     monkeypatch.setattr(pains.social, "reddit", lambda q, **k: ([_reddit_post("r1", "Headshot apps all look plastic")], 1880))
     monkeypatch.setattr(pains.social, "youtube_comments", lambda vid: ([{"text": "Is there a way to do this for a whole team at once?", "likes": 40},
                                                                         {"text": "nice", "likes": 0}], 1000))
-    monkeypatch.setattr(pains.llm, "chat", lambda model, system, user, max_tokens=2500: json.dumps([
+    monkeypatch.setattr(pains.aisa, "chat", lambda model, system, user, max_tokens=2500: json.dumps([
         {"gap": "No team or group headshots", "kind": "missing", "items": [0, 2], "phrase": "ai headshots for teams"},
         {"gap": "Results look plastic", "kind": "quality", "items": [1]}]))
     result = pains.run(cfg, "ai headshot")
@@ -1079,7 +1081,7 @@ def test_tutorial_asks_only_for_leads_marked_one_click(cfg, monkeypatch):
     settings.configure({"credentials": {"goanyapi_api_key": "k"}})
     monkeypatch.setattr(pains.goanyapi, "serp", lambda q, gl="US": ([{"url": "https://www.youtube.com/watch?v=abcdefghijk", "title": "t", "rank": 1}], 2000))
     monkeypatch.setattr(pains.social, "youtube_comments", lambda vid: ([{"text": "Can someone make this one click? Too many steps", "likes": 12}], 1000))
-    monkeypatch.setattr(pains.llm, "chat", lambda model, system, user, max_tokens=2500: json.dumps(
+    monkeypatch.setattr(pains.aisa, "chat", lambda model, system, user, max_tokens=2500: json.dumps(
         [{"gap": "Too many manual steps", "kind": "wants a tool", "items": [0], "phrase": "one click blender export"}]))
     out = pains.tutorial_asks(cfg, [{"term": "opus blender game", "one_click": "tutorial"}, {"term": "plain", "one_click": None}])
     assert [x["term"] for x in out["leads"]] == ["opus blender game"] and out["cost_micros"] == 2000 + 1000

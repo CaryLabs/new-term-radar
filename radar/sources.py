@@ -1,7 +1,7 @@
 """Signal ①, the sources: where a new name is said first.
 
 x_new    names in the last day's posts of the accounts in config.json ("x_accounts",
-         read through independent providers) that none of those accounts has used in the last VOCAB_DAYS.
+         read through AIsa) that none of those accounts has used in the last VOCAB_DAYS.
          The vocabulary is kept in the state directory; the first run only builds it.
 hf_new   models that entered Hugging Face's trending top HF_TOP since the last run (the
          public API, no key). Quantised and fine-tuned copies of one model are grouped
@@ -17,9 +17,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from .providers import ProviderError
-from .providers import x as x_provider
-from . import UA, snap
+from . import UA, aisa, snap
 from .i18n import t
 from .terms import STOP, _drop_nested, names
 
@@ -99,9 +97,9 @@ def x_new(cfg: dict, state: Path) -> dict:
         started = time.monotonic()
         print(f"X [{index}/{len(handles)}] @{h}: requesting", file=sys.stderr, flush=True)
         try:
-            item, spent = x_provider.timeline(h)
-            response = {h: item}
-        except ProviderError as exc:
+            response, spent = aisa.call([{"call_id": h, "tool": "get_twitter_user_last_tweets",
+                                          "arguments": {"userName": h}}])
+        except aisa.AisaError as exc:
             return {"error": f"@{h}: {exc}; completed {len(data)}/{len(handles)}; no retry; vocabulary unchanged",
                     "accounts": len(handles), "answered": len(data), "terms": [],
                     "cost_micros": cost, "failed_request_cost_unknown": True}

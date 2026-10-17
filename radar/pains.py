@@ -12,16 +12,15 @@ phrase someone with that problem would search.
 The daily run does the tutorial part for the leads marked ⚡ (a widely shared walkthrough of a
 manual workflow): what its viewers ask for is the one-click tool.
 
-App Store, Google Play and Trustpilot reviews are not reachable: these stores are outside this module's supported sources.
+App Store, Google Play and Trustpilot reviews are not reachable: AIsa runs synchronous calls
+only, and DataForSEO serves those reviews as tasks to post now and fetch later.
 """
 from __future__ import annotations
 
 import json
 import re
 
-from .providers import ProviderError
-from .providers import llm
-from . import goanyapi, social
+from . import aisa, goanyapi, social
 
 EXTENSION = re.compile(r"(?:chromewebstore\.google\.com/detail|chrome\.google\.com/webstore/detail)/(?:[^/?#]+/)?([a-p]{32})")
 VIDEO = re.compile(r"youtube\.com/watch\?v=([\w-]{11})")
@@ -60,7 +59,7 @@ def group(model: str, items: list[dict]) -> list[dict]:
     if not items:
         return []
     user = json.dumps([{"i": i, "source": x["source"], "text": x["text"][:300]} for i, x in enumerate(items)], ensure_ascii=False)
-    return parse(llm.chat(model, SYSTEM, user, max_tokens=2500), items)
+    return parse(aisa.chat(model, SYSTEM, user, max_tokens=2500), items)
 
 
 def chrome(keyword: str, extensions: list[str], c: dict) -> tuple[list[dict], int, list[str]]:
@@ -93,7 +92,7 @@ def reddit(keyword: str, c: dict) -> tuple[list[dict], int, list[str]]:
     for template in c["reddit_queries"]:
         try:
             posts, spent = social.reddit(template.format(k=keyword), time=c["reddit_time"], sort="relevance", limit=25)
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             errors.append(f"reddit: {exc}")
             continue
         cost += spent
@@ -106,19 +105,18 @@ def reddit(keyword: str, c: dict) -> tuple[list[dict], int, list[str]]:
 
 def tutorials(term: str, c: dict) -> tuple[list[dict], int, list[str]]:
     """Comments under the top tutorial videos for a term (needs GoAnyAPI to find the videos)."""
+    if not goanyapi.key():
+        return [], 0, []
     try:
-        if goanyapi.key():
-            found, cost = goanyapi.serp(f"site:youtube.com {term} tutorial")
-            ids = list(dict.fromkeys(m.group(1) for r in found for m in [VIDEO.search(r["url"])] if m))[:c["videos"]]
-        else:
-            ids, cost = social.youtube_videos(f'{term} tutorial', c['videos'])
-    except (goanyapi.GoAnyError, ProviderError) as exc:
+        found, cost = goanyapi.serp(f"site:youtube.com {term} tutorial")
+    except goanyapi.GoAnyError as exc:
         return [], 0, [f"video search: {exc}"]
+    ids = list(dict.fromkeys(m.group(1) for r in found for m in [VIDEO.search(r["url"])] if m))[:c["videos"]]
     items, errors = [], []
     for vid in ids:
         try:
             comments, spent = social.youtube_comments(vid)
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             errors.append(f"comments of {vid}: {exc}")
             continue
         cost += spent
@@ -136,7 +134,7 @@ def run(cfg: dict, keyword: str, extensions: list[str] | None = None) -> dict:
         items, cost, errors = items + got, cost + spent, errors + failed
     try:
         gaps = group(c["model"], items)
-    except ProviderError as exc:
+    except aisa.AisaError as exc:
         gaps, errors = [], errors + [f"model: {exc}"]
     by = {s: sum(1 for x in items if x["source"] == s) for s in ("chrome", "reddit", "youtube")}
     return {"keyword": keyword, "items": len(items), "by_source": by, "gaps": gaps, "errors": errors, "cost_micros": cost}
@@ -151,7 +149,7 @@ def tutorial_asks(cfg: dict, leads: list[dict]) -> dict:
         cost, errors = cost + spent, errors + failed
         try:
             gaps = group(c["model"], items)
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             gaps, errors = [], errors + [f"model: {exc}"]
         if gaps:
             out.append({"term": lead["term"], "comments": len(items), "gaps": gaps[:5]})

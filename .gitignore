@@ -14,5 +14,3 @@ __pycache__/
 build/
 dist/
 .DS_Store
-
-config.providers.json

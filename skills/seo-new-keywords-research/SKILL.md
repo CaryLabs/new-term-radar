@@ -1,6 +1,6 @@
 ---
 name: seo-new-keywords-research
-description: Turn new AI names or unstructured AI market signals into a keyword priority table. For each name it finds the generic search terms downstream of it, screens them for relevance, and checks novelty, demand size and momentum against Google Ads volume and Google Trends, ending in prioritize, watch or skip. Use when the user has new model, product or repository names (or an AI listening report, a batch of posts, a changelog) and asks which keywords to build pages or tools for. Runs the new-term-radar command line; needs local config.json credentials, and a GOANYAPI_API_KEY improves it.
+description: Turn new AI names or unstructured AI market signals into a keyword priority table. For each name it finds the generic search terms downstream of it, screens them for relevance, and checks novelty, demand size and momentum against Google Ads volume and Google Trends, ending in prioritize, watch or skip. Use when the user has new model, product or repository names (or an AI listening report, a batch of posts, a changelog) and asks which keywords to build pages or tools for. Runs the new-term-radar command line; needs an AISA_API_KEY, and a GOANYAPI_API_KEY improves it.
 ---
 
 # SEO new-keywords research
@@ -11,9 +11,9 @@ A name ("SynthID Detector") has a short life as a keyword and belongs to someone
 
 ## Before you run anything
 
-1. Find the radar: the current checkout (Windows default E:/Codex/new-term-radar); do not silently clone another branch. Run every command from that directory.
-2. Read local config.json and run the system launcher check. Use independent X, DeepSeek, DataForSEO, Reddit and YouTube credentials as required by the command. Do not read environment variables, .env or legacy gateway login files. Missing services must be reported, never silently skipped as success.
-3. `credentials.goanyapi_api_key` in config.json is optional (a key comes from https://goanyapi.com/r/ga-95708898fb). With it the table also holds what people really searched together with each name, and reads the bigger rows from one country's settled series. Without it, tell the user that a "flat" reading is weaker evidence (see below).
+1. Find the radar: `$NEW_TERM_RADAR_DIR` if set, else `~/new-term-radar`; clone https://github.com/zhuyansen/new-term-radar there if missing. Run every command from that directory.
+2. An AIsa key must be available, as `AISA_API_KEY` or from the AIsa CLI (`aisa login` stores it in `~/.aisa`): every lookup here is paid through it. Without it, stop and say so. A key comes from https://go.aisa.one/yansen-zhu.
+3. `GOANYAPI_API_KEY` is optional (a key comes from https://goanyapi.com/r/ga-95708898fb). With it the table also holds what people really searched together with each name, and reads the bigger rows from one country's settled series. Without it, tell the user that a "flat" reading is weaker evidence (see below).
 4. If there is no `config.json`, copy `config.example.json`.
 
 ## Step 1: pick the names

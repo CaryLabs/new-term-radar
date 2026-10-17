@@ -1,7 +1,7 @@
 """The radar's review: check every lead in Google Trends two weeks later.
 
 review()  takes up to `per_day` leads first seen `after_days` ago or earlier and not yet
-          checked, asks DataForSEO Trends (through independent providers) about each search variant, and
+          checked, asks DataForSEO Trends (through AIsa) about each search variant, and
           stores hit / miss / no_data plus how many days the radar was ahead.
 
 Each variant is its own call: in one shared task the values share a 0-100 scale and a
@@ -20,14 +20,13 @@ import sqlite3
 import statistics
 from datetime import date, timedelta
 
-from .providers import ProviderError
-from .providers import seo
-from . import store
+from . import aisa, store
 
 BEFORE_DAYS = 30
 MAX_VARIANTS = 3      # each costs one Trends task ($0.0012 in October 2026)
 RISE_FACTOR, RISE_MIN = 2.0, 10
 RISE_SHARE = 0.25     # the rise starts where a series first covers this share of base -> peak
+TOOL = "post_dataforseo_keywords_trends_explore_live"
 # Google has not settled the last two days of a daily series: they come back as 0 and
 # then 100 for unrelated terms ("ai image detector": ..., 5, 5, 0, 100 on 2026-10-12),
 # which reads as a rise. Every reader drops them (settled()).
@@ -84,7 +83,7 @@ def plan_calls(due: list[tuple], today: date, after_days: int = 14) -> tuple[lis
         window = {"date_from": (first_seen - timedelta(days=BEFORE_DAYS)).isoformat(),
                   "date_to": min(first_seen + timedelta(days=after_days), today).isoformat()}
         ids = [f"r{i}v{j}" for j in range(len(keys))]
-        calls += [{"id": cid, "params": {"keywords": [k], **window}}
+        calls += [{"call_id": cid, "tool": TOOL, "arguments": {"body": [{"keywords": [k], **window}]}}
                   for cid, k in zip(ids, keys)]
         plan.append((ids, term, first_seen, keys))
     return calls, plan
@@ -97,7 +96,7 @@ def review(cfg: dict, conn: sqlite3.Connection, today: date | None = None) -> di
     if not due:
         return {"checked": [], "cost_micros": 0, "after_days": c["after_days"]}
     calls, plan = plan_calls(due, today, c["after_days"])
-    data, cost = seo.trends_many(calls)
+    data, cost = aisa.call_all(calls)
     checked = []
     for ids, term, first_seen, keys in plan:
         if not all(cid in data for cid in ids):

@@ -1,12 +1,4 @@
-[remove-aisa 配置启动指南](REMOVE_AISA_GUIDE.md)
-
 # 项目文档
-
-## AIsa替换开发（remove-aisa分支，离线实现已完成，真实验收待执行）
-
-- [开发与测试计划](plans/remove-aisa-development-test-plan.md)：服务选型、阶段、数据契约、配置迁移和测试顺序。
-- [完整替换验收标准](plans/aisa-replacement-acceptance.md)：13类能力的质量门槛、零依赖证明和证据要求。
-- [机器可读能力清单](plans/remove-aisa-capabilities.json)：逐项追踪实现与测试状态，初始均为NOT_RUN。
 
 当前文件配置/Bash启动扩展的操作入口是[用户手册](USER_MANUAL.md)：依赖、仅本地JSON配置、Linux与Windows Git Bash脚本及实际启动验证。下列PRD/架构以0.4.0为基线，凭证与启动方式以此手册及本分支实现为准。
 

@@ -2,7 +2,7 @@
 
 A word that catches on gets sites built for it: ai-hailuo.com was registered in August
 2026 for the Hailuo video model and ranked for 258 keywords within weeks. DataForSEO's
-domain whois overview (through independent providers) finds such domains: registered AND first seen by
+domain whois overview (through AIsa) finds such domains: registered AND first seen by
 DataForSEO within `window_days`, with estimated organic traffic over `min_etv` and at
 least `min_keywords` ranking keywords. Both dates are needed: whois creation dates get
 rewritten (dagbladet.no, a 2020 site, showed a July 2026 "created"). The keyword floor
@@ -19,12 +19,11 @@ import re
 from datetime import date, timedelta
 from pathlib import Path
 
-from .providers import ProviderError
-from .providers import seo
-from . import snap
+from . import aisa, snap
 from .i18n import t
 from .terms import STOP
 
+TOOL = "post_dataforseo_domains_whois_overview_live"
 LIMIT = 30
 DOMAIN_STOP = {"com", "net", "org", "app", "io", "co", "online", "free", "tool", "tools", "the", "my", "get",
                "official", "site", "hub", "pro", "best", "video", "videos"}
@@ -51,17 +50,17 @@ def site_row(item: dict, query: str) -> dict:
 
 def _calls(c: dict, today: date) -> list[dict]:
     since = (today - timedelta(days=c["window_days"])).isoformat() + " 00:00:00 +00:00"
-    return [{"id": name, "params": {
+    return [{"call_id": name, "tool": TOOL, "arguments": {"body": [{
         "limit": LIMIT, "order_by": ["metrics.organic.etv,desc"],
         "filters": [["created_datetime", ">", since], "and", ["first_seen", ">", since], "and",
-                    ["metrics.organic.etv", ">", c["min_etv"]], "and", ["domain", "like", pattern]]}}
+                    ["metrics.organic.etv", ">", c["min_etv"]], "and", ["domain", "like", pattern]]}]}}
         for name, pattern in c["queries"].items()]
 
 
 def new_sites(cfg: dict, state: Path, today: date | None = None) -> dict:
     c = cfg["new_sites"]
     today = today or date.today()
-    data, cost = seo.new_sites_many(_calls(c, today))
+    data, cost = aisa.call_all(_calls(c, today))
     sites: dict[str, dict] = {}
     for name in c["queries"]:
         task = ((data.get(name) or {}).get("tasks") or [{}])[0]

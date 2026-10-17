@@ -4,7 +4,7 @@ Rising is not enough: a term whose first page is held by strong sites is a fight
 loses. For the table's rows that would be acted on (prioritize, then watch), up to `max_rows`
 a run, this reads:
 
-- Google's first page (DataForSEO through independent providers, about $0.002 a keyword): what kinds of pages
+- Google's first page (DataForSEO through AIsa, about $0.002 a keyword): what kinds of pages
   hold it, and whether ads show (someone pays for that click: there is money in the term);
 - the rating of each site there (GoAnyAPI, $0.002 a site, kept 30 days): `weak` counts the
   results on sites rated under 30, the slots a new site can take, and the weakest one is named;
@@ -26,10 +26,10 @@ from concurrent.futures import ThreadPoolExecutor
 from datetime import date
 from pathlib import Path
 
-from .providers import ProviderError
-from .providers import seo
-from . import goanyapi, settings, snap
+from . import aisa, goanyapi, settings, snap
 
+SERP_TOOL = "post_dataforseo_serp_google_organic_live"
+KD_TOOL = "post_dataforseo_labs_google_keyword_overview_live"
 DR_DAYS = 30
 WORKERS = 4                 # ratings asked at once
 VIDEO = ("youtube.com", "tiktok.com", "vimeo.com")
@@ -52,8 +52,8 @@ def page_kind(domain: str, url: str, title: str) -> str:
 
 def page_one(keyword: str, location: int) -> tuple[dict, int]:
     """{"results": [{"domain", "url", "title", "position", "kind"}], "ads", "features"} and the cost."""
-    page, cost = seo.live("serp", {"keyword": keyword, "location_code": location, "language_code": "en", "depth": 10})
-    data = {"serp": page}
+    data, cost = aisa.call([{"call_id": "serp", "tool": SERP_TOOL, "arguments": {"body": [{
+        "keyword": keyword, "location_code": location, "language_code": "en", "depth": 10}]}}])
     items = (((data.get("serp") or {}).get("tasks") or [{}])[0].get("result") or [{}])[0].get("items") or []
     results = [{"domain": re.sub(r"^www\.", "", i.get("domain") or ""), "url": i.get("url") or "", "title": i.get("title") or "",
                 "position": i.get("rank_group")} for i in items if i.get("type") == "organic"][:10]
@@ -64,8 +64,8 @@ def page_one(keyword: str, location: int) -> tuple[dict, int]:
 
 
 def difficulty(keywords: list[str], location: int) -> tuple[dict[str, int | None], int]:
-    difficulty, cost = seo.live("difficulty", {"keywords": keywords, "location_code": location, "language_code": "en"})
-    data = {"kd": difficulty}
+    data, cost = aisa.call([{"call_id": "kd", "tool": KD_TOOL, "arguments": {"body": [{
+        "keywords": keywords, "location_code": location, "language_code": "en"}]}}])
     items = ((((data.get("kd") or {}).get("tasks") or [{}])[0].get("result") or [{}])[0].get("items") or [])
     return {i["keyword"]: (i.get("keyword_properties") or {}).get("keyword_difficulty") for i in items}, cost
 
@@ -116,11 +116,9 @@ def supply(rows: list[dict]) -> tuple[int, list[str]]:
 
 
 def verdict(weak: int | None, kd: int | None) -> str:
-    if weak is None and kd is None:
-        return "unknown"
     if (weak is not None and weak >= 3) or (kd is not None and kd < 20):
         return "open"
-    if (weak in (0, None)) and kd is not None and kd >= 40:
+    if (weak in (0, None)) and (kd is None or kd >= 40):
         return "crowded"
     return "mixed"
 
@@ -137,12 +135,12 @@ def assess(rows: list[dict], cfg: dict, state: Path) -> tuple[int, list[str]]:
         try:
             pages[r["phrase"]], spent = page_one(r["phrase"], c["location_code"])
             cost += spent
-        except ProviderError as exc:
+        except aisa.AisaError as exc:
             errors.append(f"{r['phrase']}: {exc}")
     try:
         kds, spent = difficulty([r["phrase"] for r in picked], c["location_code"])
         cost += spent
-    except ProviderError as exc:
+    except aisa.AisaError as exc:
         kds = {}
         errors.append(f"difficulty: {exc}")
     dr, spent = ratings([x["domain"] for p in pages.values() for x in p["results"]], state)
