@@ -36,6 +36,7 @@ from __future__ import annotations
 import argparse
 import json
 import sys
+import time
 from datetime import date
 from pathlib import Path
 
@@ -45,14 +46,19 @@ from .i18n import t
 SKIPPABLE = {"x", "hf", "breakout", "sitemaps", "newsites", "revenue", "asks", "gsc", "review", "judge", "usecases", "tutorials"}
 
 
-def run(fn, skip: bool = False) -> dict:
+def run(fn, skip: bool = False, label: str = "stage") -> dict:
     """One signal failing still leaves a report: its error takes its place."""
     if skip:
         return {"skipped": True}
+    started = time.monotonic()
+    print(f"[{label}] starting", file=sys.stderr, flush=True)
     try:
-        return fn()
+        result = fn()
     except Exception as exc:  # noqa: BLE001
-        return {"error": f"{type(exc).__name__}: {' '.join(str(exc).split())[:160]}"}
+        result = {"error": f"{type(exc).__name__}: {' '.join(str(exc).split())[:240]}"}
+    status = "incomplete" if isinstance(result, dict) and (result.get("error") or result.get("errors")) else "finished"
+    print(f"[{label}] {status} ({time.monotonic() - started:.1f}s)", file=sys.stderr, flush=True)
+    return result
 
 
 def _finish(args, text: str, subject: str) -> None:
@@ -80,10 +86,10 @@ def cmd_sources(args, cfg: dict, state: Path) -> int:
 def cmd_daily(args, cfg: dict, state: Path) -> int:
     weekly = args.new_sites or date.today().weekday() == cfg["new_sites"]["weekday"]
     blocks = {
-        "x": run(lambda: sources.x_new(cfg, state), "x" in args.skip),
-        "hf": run(lambda: sources.hf_new(cfg, state), "hf" in args.skip),
-        "breakout": run(lambda: breakout.breakouts(cfg, state), "breakout" in args.skip),
-        "sitemap": run(lambda: sitemaps.diff(cfg, state), "sitemaps" in args.skip),
+        "x": run(lambda: sources.x_new(cfg, state), "x" in args.skip, "X"),
+        "hf": run(lambda: sources.hf_new(cfg, state), "hf" in args.skip, "Hugging Face"),
+        "breakout": run(lambda: breakout.breakouts(cfg, state), "breakout" in args.skip, "GitHub"),
+        "sitemap": run(lambda: sitemaps.diff(cfg, state), "sitemaps" in args.skip, "Sitemaps"),
         "newsite": run(lambda: new_sites.new_sites(cfg, state), "newsites" in args.skip or not weekly),
         "revenue": run(lambda: revenue.products(cfg, state), "revenue" in args.skip or not (
             args.revenue or date.today().weekday() == cfg["revenue"]["weekday"])),
@@ -111,7 +117,9 @@ def cmd_daily(args, cfg: dict, state: Path) -> int:
     text = report.daily(cfg, lead, blocks, found, rev, summ, extra)
     if args.out:
         Path(args.out).with_suffix(".json").write_text(json.dumps(
-            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ, "keywords": extra["usecases"]}, ensure_ascii=False, indent=1, default=str))
+            {"leads": lead, **blocks, "gsc": found, "review": rev, "summary": summ,
+             "judge": judged, "record": extra["record"], "tutorials": extra["tutorials"],
+             "keywords": extra["usecases"]}, ensure_ascii=False, indent=1, default=str))
     _finish(args, text, f"New-term radar {date.today()}")
     return 0
 
