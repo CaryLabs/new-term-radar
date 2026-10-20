@@ -49,7 +49,12 @@ def _post(url: str, body: dict, timeout: int) -> dict:
         with urllib.request.urlopen(req, timeout=timeout) as res:
             return json.load(res)
     except urllib.error.HTTPError as exc:
-        raise AisaError(f"HTTP {exc.code}: {' '.join(exc.read().decode('utf-8', 'replace').split())[:200]}") from exc
+        detail = ' '.join(exc.read().decode('utf-8', 'replace').split())[:200]
+        guidance = {
+            401: "Authentication rejected: verify credentials.aisa_api_key and the configured service URL; no retry.",
+            402: "AIsa paid balance required: check account balance/model access in the provider dashboard; no retry.",
+        }.get(exc.code, "")
+        raise AisaError(f"HTTP {exc.code}: {guidance} {detail}".strip()) from exc
     except (OSError, ValueError) as exc:
         raise AisaError(f"{type(exc).__name__}: {exc}") from exc
 

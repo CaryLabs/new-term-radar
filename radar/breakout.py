@@ -23,7 +23,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from . import UA, settings, snap
+from . import UA, settings, snap, http
 from .i18n import t
 
 PAGES = 2
@@ -37,8 +37,7 @@ def _get(path: str) -> dict:
     tok = settings.credential("github_token")
     if tok:
         headers["Authorization"] = f"Bearer {tok}"
-    with urllib.request.urlopen(urllib.request.Request(API + path, headers=headers), timeout=30) as res:
-        return json.load(res)
+    return http.get_json(urllib.request.Request(API + path, headers=headers), timeout=30)
 
 
 def repo_term(name: str) -> str:

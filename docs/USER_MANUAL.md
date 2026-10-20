@@ -277,3 +277,11 @@ X 采集现在每个账号单独请求，避免上游串行处理多个账号时
 本次脚本、仅文件配置实现及验证记录见[启动扩展验证记录](workflows/file-config-launchers-validation.md)。
 
 迁移注意：仓库原有Skills与GitHub Actions示例包含历史环境变量配置，不能直接沿用其凭证注入方式；先以本手册完成本地文件配置。GitHub Actions模板需要单独迁移为安全生成配置文件后调用Linux启动脚本，本轮未启用或验证远程调度。
+
+## 采集故障诊断
+
+运行时终端显示采集阶段开始、结束和耗时。公开 Hugging Face/GitHub GET 请求遇到临时连接错误时最多尝试三次；证书错误及普通 4xx 不重试。不会关闭 TLS 证书校验。
+
+AIsa HTTP 401 表示认证被拒绝，请检查本地配置中的 AIsa 密钥和服务地址；HTTP 402 表示模型或服务需要付费余额，请在供应商后台检查余额和权限。付费请求不会自动重试，程序不会自动充值。
+
+日常报告 JSON 包含名字判断等增强阶段的状态，启动脚本以退出码 3 表示数据不完整。可用 `bash scripts/start-windows.sh daily --out reports/retest.md` 写入独立测试报告，避免混淆旧报告。

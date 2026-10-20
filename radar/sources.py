@@ -17,7 +17,7 @@ import urllib.request
 from datetime import date, datetime, timedelta, timezone
 from pathlib import Path
 
-from . import UA, aisa, snap
+from . import UA, aisa, snap, http
 from .i18n import t
 from .terms import STOP, _drop_nested, names
 
@@ -155,8 +155,7 @@ SPACE_NOISE = {"demo", "webgpu", "studio", "space", "spaces", "playground", "gra
 def _trending(what: str) -> list[dict]:
     req = urllib.request.Request(f"https://huggingface.co/api/{what}?sort=trendingScore&direction=-1&limit={HF_FETCH}",
                                  headers={"User-Agent": UA})
-    with urllib.request.urlopen(req, timeout=40) as res:
-        return json.load(res)
+    return http.get_json(req, timeout=40)
 
 
 def _entered(items: list[dict], before: list[str], what: str) -> list[dict]:
