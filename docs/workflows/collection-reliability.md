@@ -14,3 +14,10 @@ work unit (repository maintainer). No secret/config changes, TLS bypass or purch
 Accepted slice commit: b503d44. Final checks: 123 passed, Bash syntax and diff check pass.
 Aggregate deepreview: docs/reviews/code-review-20261020-165715.md; pass-with-risks, no new findings.
 Current gate / next entry point: ready-to-open-draft-PR -> push -> create draft PR -> PR review.
+
+Commit identity correction before first successful push (GitHub email privacy):
+4a04197 -> a17f155 (plan); b503d44 -> 604bd0d (S1); dbc13e2 -> 45712a8 (aggregate).
+Source trees unchanged by identity correction; earlier artifact hashes are historical.
+Draft PR: https://github.com/CaryLabs/new-term-radar/pull/2.
+PR review: docs/reviews/pr-2-review-20261020-165953.md; pass-with-risks, no new findings; Python 3.10/3.12 CI passed.
+Current gate / next entry point: accepted PR review commit -> final push -> draft-PR-pass -> final closeout.
