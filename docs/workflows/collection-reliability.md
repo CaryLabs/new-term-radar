@@ -10,3 +10,7 @@ Current gate / next entry point: accepted slice commit after final checks, then 
 Residual risks: account funding/provider and network availability need external action;
 pre-existing nested sitemap exit-code and concurrent report writing assigned to later
 work unit (repository maintainer). No secret/config changes, TLS bypass or purchases.
+
+Accepted slice commit: b503d44. Final checks: 123 passed, Bash syntax and diff check pass.
+Aggregate deepreview: docs/reviews/code-review-20261020-165715.md; pass-with-risks, no new findings.
+Current gate / next entry point: ready-to-open-draft-PR -> push -> create draft PR -> PR review.
