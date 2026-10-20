@@ -21,3 +21,10 @@ Source trees unchanged by identity correction; earlier artifact hashes are histo
 Draft PR: https://github.com/CaryLabs/new-term-radar/pull/2.
 PR review: docs/reviews/pr-2-review-20261020-165953.md; pass-with-risks, no new findings; Python 3.10/3.12 CI passed.
 Current gate / next entry point: accepted PR review commit -> final push -> draft-PR-pass -> final closeout.
+
+PR review commit 0d7a275 pushed; draft-PR-pass achieved. Final live test ended 17:23:33,
+exit 3: HF/GitHub/all 12 sitemaps succeeded; X 32/35 then SSL EOF; judge HTTP 402;
+keyword enrichment SSL EOF. See collection-reliability-closeout.md for evidence and
+classified external limitations. Final closeout pass for code work, no complete-data
+recovery claim. Current gate: completed. Next entry: user/provider account and network
+action, then an explicitly requested rerun. PR #2 remains draft/unmerged.
